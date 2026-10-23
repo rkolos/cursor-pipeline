@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "./task-pipeline/hook.sh prompt",
+        "timeout": 10
+      }
+    ],
+    "afterAgentResponse": [
+      {
+        "command": "./task-pipeline/hook.sh response",
+        "timeout": 10
+      }
+    ],
+    "stop": [
+      {
+        "command": "./task-pipeline/hook.sh stop",
+        "timeout": 15,
+        "loop_limit": 100
+      }
+    ]
+  }
+}
