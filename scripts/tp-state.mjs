@@ -6,7 +6,7 @@
 //   tp-state.mjs init <tasksDir>                 create/sync state and set active folder
 //   tp-state.mjs next [--dir D]                  resume | start | blocked | all-done
 //   tp-state.mjs show <taskId|prefix> [--dir D]
-//   tp-state.mjs set <taskId|prefix> [--status S] [--phase P] [--dir D]
+//   tp-state.mjs set <taskId|prefix> [--status S] [--phase P] [--force] [--dir D]
 //   tp-state.mjs summary [--dir D]
 //   tp-state.mjs hook-followup --workspace W     stop-hook: print followup JSON or nothing
 
@@ -21,6 +21,18 @@ const PIPELINE_DIR = '.pipeline';
 
 const STATUSES = ['todo', 'in-progress', 'blocked', 'done'];
 const PHASES = ['plan', 'fact', 'awaiting-approval', 'implement', 'check', 'fix', 'commit', 'done'];
+const WORK_PHASES = PHASES.filter((phase) => phase !== 'done');
+/** Допустимые следующие phase при неизменном status=in-progress (ключ '' = null). */
+const PHASE_NEXT = {
+  '': ['plan', 'fact'],
+  plan: ['fact'],
+  fact: ['awaiting-approval', 'implement'],
+  'awaiting-approval': ['implement'],
+  implement: ['check'],
+  check: ['fix', 'commit'],
+  fix: ['check', 'commit'],
+  commit: ['fix'],
+};
 const DEFAULT_CONFIG = {
   gateAfterFact: false,
   maxCheckRounds: 2,
@@ -84,7 +96,9 @@ function parseArgs(argv) {
   const positional = [];
   const flags = {};
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i].startsWith('--')) {
+    if (argv[i] === '--force') {
+      flags.force = true;
+    } else if (argv[i].startsWith('--')) {
       flags[argv[i].slice(2)] = argv[i + 1];
       i += 1;
     } else {
@@ -92,6 +106,78 @@ function parseArgs(argv) {
     }
   }
   return { positional, flags };
+}
+
+function phaseKey(phase) {
+  return phase === null || phase === undefined ? '' : phase;
+}
+
+function formatPhase(phase) {
+  return phase === null || phase === undefined ? 'null' : phase;
+}
+
+/**
+ * Проверяет инварианты status/phase и соседство phase при in-progress.
+ * Возвращает итоговый phase (с auto для done/todo).
+ */
+function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseFlagPassed, force }) {
+  let phase = nextPhase;
+
+  if (force) {
+    process.stderr.write('tp-state: предупреждение: --force, проверка переходов отключена\n');
+    if (nextStatus === 'done' && !phaseFlagPassed) phase = 'done';
+    if (nextStatus === 'todo' && !phaseFlagPassed) phase = null;
+    return phase;
+  }
+
+  if (nextStatus === 'done') {
+    if (!phaseFlagPassed) phase = 'done';
+    if (phase !== 'done') {
+      fail(`status=done требует phase=done (сейчас phase=${formatPhase(phase)})`);
+    }
+    return phase;
+  }
+
+  if (nextStatus === 'todo') {
+    if (!phaseFlagPassed) phase = null;
+    if (phase !== null) {
+      fail(`status=todo требует phase=null (сейчас phase=${formatPhase(phase)})`);
+    }
+    return phase;
+  }
+
+  if (nextStatus === 'blocked') {
+    if (!phaseFlagPassed) {
+      if (prevPhase === null || prevPhase === 'done') {
+        fail(`status=blocked требует рабочую phase (сейчас phase=${formatPhase(prevPhase)})`);
+      }
+      phase = prevPhase;
+    } else if (!WORK_PHASES.includes(phase)) {
+      fail(`status=blocked: phase ${formatPhase(phase)}; ожидалось: ${WORK_PHASES.join(' | ')}`);
+    }
+    return phase;
+  }
+
+  // in-progress
+  if (phase === 'done') {
+    fail('status=in-progress не допускает phase=done — сначала --status done');
+  }
+  if (phase !== null && !WORK_PHASES.includes(phase)) {
+    fail(`status=in-progress: phase ${formatPhase(phase)}; ожидалось: null | ${WORK_PHASES.join(' | ')}`);
+  }
+
+  if (prevStatus === 'in-progress' && nextStatus === 'in-progress' && phase !== prevPhase) {
+    const from = phaseKey(prevPhase);
+    const allowed = PHASE_NEXT[from] ?? [];
+    if (!allowed.includes(phase)) {
+      const expect = allowed.length > 0 ? allowed.join(' | ') : '(нет допустимых)';
+      fail(
+        `запрещён переход phase ${formatPhase(prevPhase)} → ${formatPhase(phase)}; ожидалось: ${expect}`,
+      );
+    }
+  }
+
+  return phase;
 }
 
 function workspaceRootOf(dir) {
@@ -295,14 +381,31 @@ function cmdSet(ref, flags) {
   const tasksDir = resolveTasksDir(flags.dir);
   const state = loadState(tasksDir);
   const task = findTask(state, ref);
-  if (flags.status !== undefined) {
-    if (!STATUSES.includes(flags.status)) fail(`status: ${STATUSES.join(' | ')}`);
-    task.status = flags.status;
+  const prevStatus = task.status;
+  const prevPhase = task.phase;
+
+  if (flags.status !== undefined && !STATUSES.includes(flags.status)) {
+    fail(`status: ${STATUSES.join(' | ')}`);
   }
-  if (flags.phase !== undefined) {
-    if (flags.phase !== 'null' && !PHASES.includes(flags.phase)) fail(`phase: ${PHASES.join(' | ')} | null`);
-    task.phase = flags.phase === 'null' ? null : flags.phase;
+  const phaseFlagPassed = flags.phase !== undefined;
+  if (phaseFlagPassed && flags.phase !== 'null' && !PHASES.includes(flags.phase)) {
+    fail(`phase: ${PHASES.join(' | ')} | null`);
   }
+
+  const nextStatus = flags.status !== undefined ? flags.status : prevStatus;
+  const rawPhase = phaseFlagPassed ? (flags.phase === 'null' ? null : flags.phase) : prevPhase;
+  const nextPhase = assertTransition({
+    prevStatus,
+    prevPhase,
+    nextStatus,
+    nextPhase: rawPhase,
+    phaseFlagPassed,
+    force: Boolean(flags.force),
+  });
+
+  task.status = nextStatus;
+  task.phase = nextPhase;
+
   if (task.status === 'in-progress') {
     const other = state.tasks.find((item) => item.status === 'in-progress' && item !== task);
     if (other) fail(`задача ${other.id} уже in-progress — одновременно в работе может быть только одна`);
@@ -393,5 +496,7 @@ switch (command) {
     cmdHookFollowup(flags);
     break;
   default:
-    fail('команды: init <dir> | next | show <id> | set <id> [--status S] [--phase P] | summary  (опц. --dir D)');
+    fail(
+      'команды: init <dir> | next | show <id> | set <id> [--status S] [--phase P] [--force] | summary  (опц. --dir D)',
+    );
 }

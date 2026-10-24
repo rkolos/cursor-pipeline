@@ -1,7 +1,7 @@
 # Spec 01 — Task 02 — `init`: restore status from filename suffixes
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **02** · priority **P0**  
-**Depends on:** [01](01-state-transition-validation.md) (желательно; можно параллельно, если не трогать одни и те же ветки `cmdSet`)
+**Depends on:** [01](01-state-transition-validation.done.md) (желательно; можно параллельно, если не трогать одни и те же ветки `cmdSet`)
 
 ## Description
 

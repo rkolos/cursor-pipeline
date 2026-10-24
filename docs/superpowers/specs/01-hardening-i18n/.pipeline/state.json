@@ -16,9 +16,9 @@
     },
     {
       "id": "01-state-transition-validation",
-      "file": "01-state-transition-validation.md",
-      "status": "todo",
-      "phase": null
+      "file": "01-state-transition-validation.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "02-init-infer-status-from-filename",

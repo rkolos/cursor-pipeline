@@ -56,4 +56,70 @@ unblock="$($TP next --dir "$TMP")"
 ub_action="$(echo "$unblock" | python3 -c 'import json,sys; print(json.load(sys.stdin)["action"])')"
 [[ "$ub_action" == "resume" ]] || { echo "FAIL: expected resume after recommendation, got $ub_action"; exit 1; }
 
+# Full legal phase cycle after unblock (status already in-progress, phase implement)
+$TP set 002-beta --phase check --dir "$TMP" >/dev/null
+$TP set 002-beta --phase commit --dir "$TMP" >/dev/null
+$TP set 002-beta --status done --phase done --dir "$TMP" >/dev/null
+[[ -f "$TMP/002-beta.done.md" ]] || { echo "FAIL: missing 002 done rename"; exit 1; }
+
+# Fresh task for plan→…→commit happy path + fail / force cases
+cat > "$TMP/003-gamma.md" <<'EOF'
+# 003-gamma
+
+## Definition of done
+- Transition validation cases.
+EOF
+$TP init "$TMP" >/dev/null
+
+$TP set 003-gamma --status in-progress --phase plan --dir "$TMP" >/dev/null
+$TP set 003-gamma --phase fact --dir "$TMP" >/dev/null
+$TP set 003-gamma --phase implement --dir "$TMP" >/dev/null
+$TP set 003-gamma --phase check --dir "$TMP" >/dev/null
+$TP set 003-gamma --phase commit --dir "$TMP" >/dev/null
+$TP set 003-gamma --status done --dir "$TMP" >/dev/null
+phase_after="$(python3 -c 'import json; print(json.load(open("'"$TMP"'/.pipeline/state.json"))["tasks"][2]["phase"])')"
+[[ "$phase_after" == "done" ]] || { echo "FAIL: auto phase=done expected, got $phase_after"; exit 1; }
+
+# Reset 003 for fail cases: re-init won't reset known status — use force to put back in-progress/plan
+$TP set 003-gamma --status in-progress --phase plan --force --dir "$TMP" >/dev/null 2>/tmp/tp-force-warn.txt
+grep -q 'предупреждение' /tmp/tp-force-warn.txt || { echo "FAIL: expected --force warning on stderr"; cat /tmp/tp-force-warn.txt; exit 1; }
+
+ec=0
+err="$(mktemp)"
+$TP set 003-gamma --phase commit --dir "$TMP" >"$err" 2>&1 || ec=$?
+[[ "$ec" -ne 0 ]] || { echo "FAIL: plan→commit should fail"; cat "$err"; exit 1; }
+grep -q 'запрещён переход' "$err" || { echo "FAIL: expected transition message"; cat "$err"; exit 1; }
+
+ec=0
+$TP set 003-gamma --phase done --dir "$TMP" >"$err" 2>&1 || ec=$?
+[[ "$ec" -ne 0 ]] || { echo "FAIL: in-progress+phase done should fail"; cat "$err"; exit 1; }
+
+ec=0
+$TP set 003-gamma --status todo --phase plan --dir "$TMP" >"$err" 2>&1 || ec=$?
+[[ "$ec" -ne 0 ]] || { echo "FAIL: todo+phase plan should fail"; cat "$err"; exit 1; }
+
+$TP set 003-gamma --status done --phase done --force --dir "$TMP" >/dev/null 2>/dev/null
+ec=0
+$TP set 003-gamma --phase commit --dir "$TMP" >"$err" 2>&1 || ec=$?
+[[ "$ec" -ne 0 ]] || { echo "FAIL: done+phase commit should fail"; cat "$err"; exit 1; }
+
+# blocked with null phase
+cat > "$TMP/004-delta.md" <<'EOF'
+# 004-delta
+EOF
+$TP init "$TMP" >/dev/null
+ec=0
+$TP set 004-delta --status blocked --dir "$TMP" >"$err" 2>&1 || ec=$?
+[[ "$ec" -ne 0 ]] || { echo "FAIL: blocked with null phase should fail"; cat "$err"; exit 1; }
+
+# force allows illegal phase jump
+$TP set 003-gamma --status in-progress --phase plan --force --dir "$TMP" >/dev/null 2>/dev/null
+force_out="$(mktemp)"
+force_err="$(mktemp)"
+$TP set 003-gamma --phase commit --force --dir "$TMP" >"$force_out" 2>"$force_err"
+grep -q 'предупреждение' "$force_err" || { echo "FAIL: force jump missing warning"; cat "$force_err"; exit 1; }
+python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$force_out" || { echo "FAIL: force jump stdout not JSON"; cat "$force_out"; exit 1; }
+phase_forced="$(python3 -c 'import json; t=json.load(open("'"$TMP"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="003-gamma"][0]["phase"])')"
+[[ "$phase_forced" == "commit" ]] || { echo "FAIL: force jump should set commit, got $phase_forced"; exit 1; }
+
 echo "tp-state.test.sh OK"

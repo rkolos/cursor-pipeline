@@ -1,7 +1,7 @@
 # Spec 01 — Task 03 — Mark `done` only after successful commit
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **03** · priority **P0**  
-**Depends on:** [01](01-state-transition-validation.md)
+**Depends on:** [01](01-state-transition-validation.done.md)
 
 ## Description
 

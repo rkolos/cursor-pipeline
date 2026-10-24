@@ -16,7 +16,7 @@
 
 | # | File | Priority | Scope |
 |---|---|---|---|
-| 01 | [01-state-transition-validation.md](01-state-transition-validation.md) | P0 | Допустимые `status`/`phase` в `tp-state set` |
+| 01 | [01-state-transition-validation.done.md](01-state-transition-validation.done.md) | P0 | Допустимые `status`/`phase` в `tp-state set` |
 | 02 | [02-init-infer-status-from-filename.md](02-init-infer-status-from-filename.md) | P0 | Infer из суффиксов при `init`: `.in-work`→`in-progress`, `.done`→`done`, plain→`todo` (`blocked` из имени не восстанавливается) |
 | 03 | [03-commit-before-done.md](03-commit-before-done.md) | P0 | `done` только после успешного commit (+ правило/команда) |
 | 04 | [04-merge-hooks-update.md](04-merge-hooks-update.md) | P0 | Reinstall обновляет pipeline-hooks по marker |

@@ -1,7 +1,7 @@
 # Spec 01 — Task 10 — `tp-state doctor`
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **10** · priority **P1**  
-**Depends on:** [01](01-state-transition-validation.md), [02](02-init-infer-status-from-filename.md), [06](06-i18n-foundation.md)
+**Depends on:** [01](01-state-transition-validation.done.md), [02](02-init-infer-status-from-filename.md), [06](06-i18n-foundation.md)
 
 ## Description
 

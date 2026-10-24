@@ -1,7 +1,7 @@
 # Spec 01 — Task 05 — `hook-followup` tests + GitHub Actions
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **05** · priority **P0**  
-**Depends on:** [01](01-state-transition-validation.md), [02](02-init-infer-status-from-filename.md) (для реалистичного state)
+**Depends on:** [01](01-state-transition-validation.done.md), [02](02-init-infer-status-from-filename.md) (для реалистичного state)
 
 ## Description
 

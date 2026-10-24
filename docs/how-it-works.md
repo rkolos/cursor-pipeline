@@ -17,6 +17,8 @@ Each task moves through phases stored in `state.json`:
 
 Statuses: `todo`, `in-progress`, `blocked`, `done`. Only one task may be `in-progress`.
 
+`tp-state set` validates status/phase invariants (for example `done` implies `phase=done`, `todo` implies `phase=null`) and, while status stays `in-progress`, only allows adjacent phase moves along the pipeline (`plan → fact → … → commit`, plus documented shortcuts such as `fact → implement` and `check → commit`). Use `--force` to bypass those checks for manual repair; the status/phase whitelist and the single `in-progress` rule still apply.
+
 ## File naming
 
 `tp-state set` renames task files:
