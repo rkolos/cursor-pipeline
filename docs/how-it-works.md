@@ -17,9 +17,23 @@ Each task moves through phases stored in `state.json`:
 
 Statuses: `todo`, `in-progress`, `blocked`, `done`. Only one task may be `in-progress`.
 
-`config.lang` is `en` | `uk` | `ru`. A **new** `init` sets `lang` to `TP_LANG` or `en`. Re-init of an existing state without `lang` writes `ru` (legacy installs). CLI/hook strings load from `scripts/locales/<lang>.json` via `scripts/i18n.mjs`. Agent command/rule files live under `commands/<lang>/` and `rules/<lang>/`; `install.sh` currently links the `ru` tree (switchable in task 09).
+### Language resolution
 
-`questions.md` accepts `Recommendation` / `Рекомендация` / `Рекомендація` and `Answer` / `Ответ` / `Відповідь`; auto-fill keeps the same language label.
+| Layer | Source order | Default |
+|-------|--------------|---------|
+| Agent packs (install) | `--lang` → `TP_LANG` → `~/.cursor/task-pipeline/install.json` → `en` | **`en`** |
+| CLI / hooks / `run-loop` notify | `state.config.lang` → `TP_LANG` → legacy | new `init` → **`en`**; existing state without `lang` → **`ru`** |
+
+`config.lang` is `en` | `uk` | `ru`. CLI/hook strings load from `scripts/locales/<lang>.json` via `scripts/i18n.mjs`. Agent command/rule files live under `commands/<lang>/` and `rules/<lang>/`; `./install.sh --lang …` symlinks the chosen pack into `~/.cursor/commands/` and `~/.cursor/rules/`. Changing install `--lang` does not rewrite existing `state.config.lang`.
+
+### `questions.md` markers
+
+| Role | EN | RU | UK |
+|------|----|----|----|
+| Recommendation | `Recommendation:` | `Рекомендация:` | `Рекомендація:` |
+| Answer | `Answer:` | `Ответ:` | `Відповідь:` |
+
+Auto-fill from recommendation keeps the same language label as the recommendation line.
 
 On the commit phase the agent stays `in-progress` until `git commit` succeeds: `TP set … done` (task file rename) immediately before staging that commit; if the commit fails, roll back with `TP set … --status in-progress --phase commit --force`. Push failure does not undo `done`.
 
@@ -47,9 +61,9 @@ Under `<tasksDir>/.pipeline/runs/<id>/`:
 | `fact-report.md` | Plan fact-check result |
 | `check-report.md` | Implementation review rounds |
 | `fix-plan.md` | Required fixes from review |
-| `questions.md` | Human decisions; `Рекомендация:` + `Ответ:` |
+| `questions.md` | Human decisions; recommendation + answer markers (EN/RU/UK, see table above) |
 
-If every question has `Ответ:` (including auto-filled from `Рекомендация:`), `tp-state next` can resume without manual `blocked` clearance.
+If every question has an answer (including auto-filled from the recommendation), `tp-state next` can resume without manual `blocked` clearance.
 
 ## Hooks
 

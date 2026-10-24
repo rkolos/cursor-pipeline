@@ -64,9 +64,9 @@
     },
     {
       "id": "09-install-lang-and-docs",
-      "file": "09-install-lang-and-docs.md",
-      "status": "todo",
-      "phase": null
+      "file": "09-install-lang-and-docs.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "10-tp-state-doctor",

@@ -26,4 +26,7 @@ echo "=== merge-hooks ==="
 echo "=== hook-followup ==="
 "$REPO_ROOT/tests/hook-followup.test.sh"
 
+echo "=== install-lang ==="
+"$REPO_ROOT/tests/install-lang.test.sh"
+
 echo "All tests passed."

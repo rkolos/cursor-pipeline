@@ -35,5 +35,11 @@
   "followup.resume": "Продовжуй конвеєр задач: прочитай ~/.cursor/commands/task-pipeline.md і продовжи задачу {id} з фази {phase} (тека задач: {tasksDir}).",
   "followup.unblock": "Продовжуй конвеєр задач: у questions.md є відповіді (зокрема авто з Рекомендація) — виконай TP set {id} --status in-progress і продовжуй з фази {phase} (тека задач: {tasksDir}). Прочитай ~/.cursor/commands/task-pipeline.md.",
   "followup.nextTask": "Продовжуй конвеєр задач без паузи: {prev}наступна задача {id}. Виконай TP set {id} --status in-progress --phase plan і пройди повний цикл (план → факт → implement → check → commit) за ~/.cursor/commands/task-pipeline.md (тека задач: {tasksDir}). Не проси новий чат і не закінчуй відповідь питанням «продовжувати?» — наступну задачу запустить stop-hook.",
-  "followup.prevDone": "{id} виконана. "
+  "followup.prevDone": "{id} виконана. ",
+  "runloop.allDone": "Усі задачі виконані.",
+  "runloop.blocked": "Задача {id} заблокована — заповніть «Відповідь:» у {path} і перезапустіть (за наявності відповідей next сам зніме blocked).",
+  "runloop.blockedShort": "Задача {id} заблокована — див. questions.md.",
+  "runloop.stalled": "Немає прогресу по {id} ({state}) — зупинка, див. {log}",
+  "runloop.maxRuns": "{id} не завершилась за {max} запусків — зупинка.",
+  "runloop.maxTasks": "Досягнуто ліміт --max-tasks={max}."
 }

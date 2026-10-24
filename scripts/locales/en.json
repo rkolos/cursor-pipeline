@@ -35,5 +35,11 @@
   "followup.resume": "Continue the task pipeline: read ~/.cursor/commands/task-pipeline.md and resume task {id} from phase {phase} (tasks folder: {tasksDir}).",
   "followup.unblock": "Continue the task pipeline: questions.md has answers (including auto from Recommendation) — run TP set {id} --status in-progress and resume from phase {phase} (tasks folder: {tasksDir}). Read ~/.cursor/commands/task-pipeline.md.",
   "followup.nextTask": "Continue the task pipeline without pausing: {prev}next task {id}. Run TP set {id} --status in-progress --phase plan and complete the full cycle (plan → fact → implement → check → commit) per ~/.cursor/commands/task-pipeline.md (tasks folder: {tasksDir}). Do not ask for a new chat or end with “continue?” — the stop-hook starts the next task.",
-  "followup.prevDone": "{id} is done. "
+  "followup.prevDone": "{id} is done. ",
+  "runloop.allDone": "All tasks done.",
+  "runloop.blocked": "Task {id} is blocked — fill in «Answer:» in {path} and re-run (next clears blocked when answers are present).",
+  "runloop.blockedShort": "Task {id} is blocked — see questions.md.",
+  "runloop.stalled": "No progress on {id} ({state}) — stopping, see {log}",
+  "runloop.maxRuns": "{id} did not finish in {max} runs — stopping.",
+  "runloop.maxTasks": "Reached --max-tasks={max}."
 }

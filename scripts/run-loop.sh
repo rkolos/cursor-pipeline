@@ -43,8 +43,34 @@ mkdir -p "$LOG_DIR"
 
 STATE_JSON="$TASKS_DIR/.pipeline/state.json"
 STATUS_WATCH_PID=""
+# Resolve i18n next to the real tp-state.mjs (install uses symlinks into ~/.cursor/task-pipeline).
+TP_SCRIPTS_DIR="$(node -e "const fs=require('fs');const p=require('path');const t=process.argv[1];console.log(p.dirname(fs.realpathSync(t)));" "$HOME/.cursor/task-pipeline/tp-state.mjs")"
 
 state_of() { $TP show "$1" --dir "$TASKS_DIR" | jq -r '"\(.status)\(if .phase and .phase != .status then "/\(.phase)" else "" end)"'; }
+
+# Notify strings from scripts/locales/<config.lang>.json (vars as name=value args).
+tp_t() {
+  local key="$1"
+  shift
+  node --input-type=module -e "
+    import { readFileSync } from 'node:fs';
+    import { pathToFileURL } from 'node:url';
+    import { join } from 'node:path';
+    const scriptsDir = process.argv[1];
+    const statePath = process.argv[2];
+    const key = process.argv[3];
+    const { t, resolveLang } = await import(pathToFileURL(join(scriptsDir, 'i18n.mjs')).href);
+    let config = {};
+    try { config = JSON.parse(readFileSync(statePath, 'utf8')).config || {}; } catch {}
+    const lang = resolveLang(config);
+    const vars = {};
+    for (const pair of process.argv.slice(4)) {
+      const i = pair.indexOf('=');
+      if (i > 0) vars[pair.slice(0, i)] = pair.slice(i + 1);
+    }
+    process.stdout.write(t(lang, key, vars));
+  " "$TP_SCRIPTS_DIR" "$STATE_JSON" "$key" "$@"
+}
 
 # stream-json агента → читаемые строки: реплики, вызовы инструментов, итог. Не-JSON строки (ошибки сети) — как есть.
 humanize_stream() {
@@ -157,12 +183,13 @@ docker_cleanup_after_task() {
   docker builder prune -f 2>/dev/null || true
 }
 
+# Installed command file is already localized via install.sh --lang; prompt stays EN for the CLI agent.
 PROMPT="TP_AUTONOMOUS=1
 /task-pipeline $TASKS_DIR
-Прочитай ~/.cursor/commands/task-pipeline.md и выполняй его для этой папки задач. Пройди столько фаз текущей задачи, сколько успеешь; состояние меняй только через tp-state.mjs. Не задавай вопросов в чат. В questions.md если есть Рекомендация: — сразу пиши её в Ответ: и НЕ ставь blocked; blocked только если рекомендации нет.
-Важно (пакетный прогон): на фазе commit НЕ запускай полный precommit (не npm run precommit-check, не полный npm run test / lint / build). Только узкие jest по изменённым путям + npm run typecheck — см. § 2a в task-pipeline.md. Процедуру /коммит проекта используй без её полного п.1 проверок."
+Read ~/.cursor/commands/task-pipeline.md and follow it for this tasks folder. Complete as many phases of the current task as you can; change state only via tp-state.mjs. Do not ask questions in chat. In questions.md, if there is Recommendation:/Рекомендация:/Рекомендація: — copy it into Answer:/Ответ:/Відповідь: immediately and do NOT set blocked; blocked only when there is no recommendation.
+Batch run: on commit do NOT run full precommit (no npm run precommit-check, no full npm test/lint/build). Only focused jest on changed paths + npm run typecheck — see § 2a in task-pipeline.md. Use the project's /commit procedure without its full check step."
 
-echo "Пакетный прогон: $TASKS_DIR"
+echo "Batch run: $TASKS_DIR"
 print_board
 
 tasks_done=0
@@ -170,11 +197,11 @@ while [ "$tasks_done" -lt "$MAX_TASKS" ]; do
   next="$($TP next --dir "$TASKS_DIR")"
   action="$(echo "$next" | jq -r .action)"
   case "$action" in
-    all-done) notify "Все задачи выполнены."; exit 0 ;;
+    all-done) notify "$(tp_t runloop.allDone)"; exit 0 ;;
     blocked)
       id="$(echo "$next" | jq -r .task.id)"
       qpath="$(echo "$next" | jq -r .task.runDir)/questions.md"
-      notify "Задача $id заблокирована — заполните «Ответ:» в $qpath и перезапустите (при заполненных ответах next сам снимет blocked)."
+      notify "$(tp_t runloop.blocked "id=$id" "path=$qpath")"
       exit 2 ;;
   esac
   id="$(echo "$next" | jq -r .task.id)"
@@ -207,21 +234,21 @@ while [ "$tasks_done" -lt "$MAX_TASKS" ]; do
         tasks_done=$((tasks_done + 1))
         continue 2
         ;;
-      blocked*) notify "Задача $id заблокирована — см. questions.md."; exit 2 ;;
+      blocked*) notify "$(tp_t runloop.blockedShort "id=$id")"; exit 2 ;;
     esac
     if [ "$after" = "$before" ]; then
       stalls=$((stalls + 1))
-      [ "$stalls" -ge 2 ] && { notify "Нет прогресса по $id ($after) — остановка, см. $log"; exit 3; }
+      [ "$stalls" -ge 2 ] && { notify "$(tp_t runloop.stalled "id=$id" "state=$after" "log=$log")"; exit 3; }
       if [ "$agent_rc" -ne 0 ]; then
-        echo "  агент упал без прогресса (код $agent_rc) — пауза 30с перед повтором"
+        echo "  agent exited without progress (code $agent_rc) — pause 30s before retry"
         sleep 30
       fi
     else
       stalls=0
     fi
   done
-  notify "$id не завершилась за $MAX_RUNS запусков — остановка."
+  notify "$(tp_t runloop.maxRuns "id=$id" "max=$MAX_RUNS")"
   exit 3
 done
-notify "Достигнут лимит --max-tasks=$MAX_TASKS."
+notify "$(tp_t runloop.maxTasks "max=$MAX_TASKS")"
 exit 0

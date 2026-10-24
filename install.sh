@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install cursor-pipeline into ~/.cursor via symlinks + hooks merge.
-#   ./install.sh           install or refresh
-#   ./install.sh --uninstall   remove symlinks and pipeline hook entries
+#   ./install.sh [--lang en|uk|ru]     install or refresh (default lang: en)
+#   ./install.sh --uninstall           remove symlinks and pipeline hook entries
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -9,17 +9,39 @@ CURSOR_DIR="${CURSOR_DIR:-$HOME/.cursor}"
 COMMANDS_DIR="$CURSOR_DIR/commands"
 RULES_DIR="$CURSOR_DIR/rules"
 TP_DIR="$CURSOR_DIR/task-pipeline"
+INSTALL_JSON="$TP_DIR/install.json"
 HOOKS_FILE="$CURSOR_DIR/hooks.json"
 MERGE="$REPO_ROOT/scripts/merge-hooks.mjs"
 BACKUP_ROOT="$CURSOR_DIR/task-pipeline-backup"
+DEFAULT_LANG="en"
 
 UNINSTALL=false
-if [[ "${1:-}" == "--uninstall" ]]; then
-  UNINSTALL=true
-elif [[ -n "${1:-}" ]]; then
-  echo "Usage: $0 [--uninstall]" >&2
-  exit 1
-fi
+LANG_FLAG=""
+
+usage() {
+  cat <<EOF
+Usage: $0 [--lang en|uk|ru] [--uninstall]
+
+  --lang LANG   Agent command/rule pack (default: en).
+                Order: --lang → TP_LANG → install.json → en
+  --uninstall   Remove command/rule/script symlinks and pipeline hooks.
+                Leaves $INSTALL_JSON and other pipeline state intact.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --uninstall) UNINSTALL=true; shift ;;
+    --lang)
+      [[ $# -ge 2 ]] || { echo "Usage: $0 [--lang en|uk|ru] [--uninstall]" >&2; exit 1; }
+      LANG_FLAG="$2"; shift 2 ;;
+    --lang=*) LANG_FLAG="${1#--lang=}"; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *)
+      echo "Usage: $0 [--lang en|uk|ru] [--uninstall]" >&2
+      exit 1 ;;
+  esac
+done
 
 die() {
   echo "install.sh: $*" >&2
@@ -105,6 +127,50 @@ remove_symlink_if_repo() {
   fi
 }
 
+valid_lang() {
+  case "$1" in en|uk|ru) return 0 ;; *) return 1 ;; esac
+}
+
+read_persisted_lang() {
+  if [[ -f "$INSTALL_JSON" ]]; then
+    node -e "
+      try {
+        const j = JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'));
+        if (j.lang) process.stdout.write(String(j.lang));
+      } catch {}
+    " "$INSTALL_JSON" 2>/dev/null || true
+  fi
+}
+
+resolve_install_lang() {
+  local lang=""
+  if [[ -n "$LANG_FLAG" ]]; then
+    lang="$LANG_FLAG"
+  elif [[ -n "${TP_LANG:-}" ]]; then
+    lang="$TP_LANG"
+  else
+    lang="$(read_persisted_lang)"
+  fi
+  if [[ -z "$lang" ]]; then
+    lang="$DEFAULT_LANG"
+  fi
+  valid_lang "$lang" || die "unsupported --lang '$lang' (expected: en|uk|ru)"
+  echo "$lang"
+}
+
+write_install_json() {
+  local lang="$1"
+  mkdir -p "$TP_DIR"
+  node -e "
+    const fs = require('fs');
+    const path = process.argv[1];
+    const lang = process.argv[2];
+    let prev = {};
+    try { prev = JSON.parse(fs.readFileSync(path, 'utf8')); } catch {}
+    fs.writeFileSync(path, JSON.stringify({ ...prev, lang, installedAt: new Date().toISOString() }, null, 2) + '\n');
+  " "$INSTALL_JSON" "$lang"
+}
+
 if $UNINSTALL; then
   echo "Uninstalling cursor-pipeline from $CURSOR_DIR ..."
   require_node
@@ -115,11 +181,12 @@ if $UNINSTALL; then
     [[ -e "$f" ]] || continue
     remove_symlink_if_repo "$f"
   done
-  for name in hook.mjs hook.sh tp-state.mjs run-loop.sh; do
+  for name in hook.mjs hook.sh tp-state.mjs run-loop.sh i18n.mjs; do
     remove_symlink_if_repo "$TP_DIR/$name"
   done
+  remove_symlink_if_repo "$TP_DIR/locales"
   node "$MERGE" --target "$HOOKS_FILE" --uninstall
-  echo "Done. Pipeline state in $TP_DIR (active.json, sessions/) was left intact."
+  echo "Done. Pipeline state in $TP_DIR (install.json, active.json, sessions/) was left intact."
   echo "Reload the Cursor window (Developer: Reload Window)."
   exit 0
 fi
@@ -128,10 +195,10 @@ echo "Installing cursor-pipeline from $REPO_ROOT ..."
 require_node
 warn_optional
 
+INSTALL_LANG="$(resolve_install_lang)"
+
 mkdir -p "$COMMANDS_DIR" "$RULES_DIR" "$TP_DIR"
 
-# Locale for agent prompts (09 adds --lang; until then install keeps RU baseline).
-INSTALL_LANG="${INSTALL_LANG:-ru}"
 COMMANDS_SRC="$REPO_ROOT/commands/$INSTALL_LANG"
 RULES_SRC="$REPO_ROOT/rules/$INSTALL_LANG"
 [[ -d "$COMMANDS_SRC" ]] || die "missing commands/$INSTALL_LANG"
@@ -154,11 +221,16 @@ install_symlink "$REPO_ROOT/scripts/hook.mjs" "$TP_DIR/hook.mjs"
 install_symlink "$REPO_ROOT/scripts/hook.sh" "$TP_DIR/hook.sh"
 install_symlink "$REPO_ROOT/scripts/tp-state.mjs" "$TP_DIR/tp-state.mjs"
 install_symlink "$REPO_ROOT/scripts/run-loop.sh" "$TP_DIR/run-loop.sh"
+install_symlink "$REPO_ROOT/scripts/i18n.mjs" "$TP_DIR/i18n.mjs"
+install_symlink "$REPO_ROOT/scripts/locales" "$TP_DIR/locales"
 
 echo "Hooks:"
 node "$MERGE" --target "$HOOKS_FILE" --fragment "$REPO_ROOT/hooks/hooks.json"
 
+write_install_json "$INSTALL_LANG"
+
 echo ""
-echo "Install complete."
+echo "Install complete (lang=$INSTALL_LANG)."
+echo "  persisted: $INSTALL_JSON"
 echo "Reload the Cursor window (Developer: Reload Window) so commands and rules reload."
 echo "Then run: /task-pipeline <path-to-tasks-folder>"

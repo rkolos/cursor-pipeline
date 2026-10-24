@@ -58,18 +58,29 @@ GitHub Actions (`.github/workflows/test.yml`) runs `./tests/run.sh` on push and 
 ```bash
 git clone https://github.com/rkolos/cursor-pipeline.git
 cd cursor-pipeline
-./install.sh
+./install.sh                 # default language: en
+./install.sh --lang uk       # Ukrainian agent prompts
+./install.sh --lang ru       # Russian agent prompts
 ```
 
 Then **Developer: Reload Window** in Cursor.
 
-`install.sh` symlinks commands, rules, and scripts into `~/.cursor` and merges hook entries into `~/.cursor/hooks.json` without removing your other hooks. Runtime state (`~/.cursor/task-pipeline/active.json`, `sessions/`) stays on your machine and is not part of the repo.
+`install.sh` symlinks commands, rules, and scripts into `~/.cursor` and merges hook entries into `~/.cursor/hooks.json` without removing your other hooks. Runtime state (`~/.cursor/task-pipeline/active.json`, `sessions/`, `install.json`) stays on your machine and is not part of the repo.
+
+Language for the installed agent packs (`--lang`):
+
+1. `./install.sh --lang en|uk|ru`
+2. else `TP_LANG`
+3. else last value in `~/.cursor/task-pipeline/install.json`
+4. else **`en`**
+
+Re-running install without a flag keeps the previous `install.json` language. Switching `--lang` replaces command/rule symlinks (non-repo files at those paths are backed up first).
 
 | Repo path | Installed to |
 |-----------|----------------|
-| `commands/ru/*.md` (install baseline) | `~/.cursor/commands/` |
-| `rules/ru/task-pipeline-*.mdc` | `~/.cursor/rules/` |
-| `scripts/hook.mjs`, `hook.sh`, `tp-state.mjs`, `run-loop.sh` | `~/.cursor/task-pipeline/` |
+| `commands/<lang>/*.md` | `~/.cursor/commands/` |
+| `rules/<lang>/task-pipeline-*.mdc` | `~/.cursor/rules/` |
+| `scripts/hook.mjs`, `hook.sh`, `tp-state.mjs`, `run-loop.sh`, `i18n.mjs`, `locales/` | `~/.cursor/task-pipeline/` |
 | `hooks/hooks.json` (fragment) | merged into `~/.cursor/hooks.json` |
 
 Existing files at those paths are backed up to `~/.cursor/task-pipeline-backup-<timestamp>/` before replacing.
@@ -175,9 +186,18 @@ Run `init` with your tasks path or start `/task-pipeline <folder>`.
 **Two tasks in-progress**  
 Only one task may be `in-progress`; finish or reset via `tp-state set`.
 
-## Language note
+**Wrong language in Agent / slash command**  
+Reinstall with the pack you want: `./install.sh --lang en` (or `uk` / `ru`), then **Reload Window**. That only changes installed commands/rules — it does not rewrite existing `state.json` `config.lang`. For CLI/hook message language in a tasks folder, set `config.lang` or `TP_LANG` (see [docs/how-it-works.md](docs/how-it-works.md)).
 
-Agent prompts live under `commands/<lang>/` and `rules/<lang>/` (`en`, `uk`, and `ru` shipped; `install.sh` currently links `ru` until `--lang` in a later task). CLI/hook strings are in `scripts/locales/*.json`. Documentation in this repo is English.
+## Language
+
+| Surface | Languages | Default |
+|---------|-----------|---------|
+| Agent commands & rules (`commands/`, `rules/`) | `en`, `uk`, `ru` | install **`en`** (`--lang` / `TP_LANG` / `install.json`) |
+| CLI & hooks (`scripts/locales/*.json`) | `en`, `uk`, `ru` | new `init` → **`en`**; legacy state without `lang` → **`ru`** |
+| Repo docs (README, how-it-works, …) | English | — |
+
+Per-folder pipeline language: `state.json` → `config.lang`, or env `TP_LANG`. Install language and `config.lang` are independent — changing `--lang` does not rewrite existing task states.
 
 ## Repository layout
 
