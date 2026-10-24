@@ -154,7 +154,11 @@ node ~/.cursor/task-pipeline/tp-state.mjs next
 node ~/.cursor/task-pipeline/tp-state.mjs show 001-add-readme
 node ~/.cursor/task-pipeline/tp-state.mjs set 001-add-readme --status done --phase done
 node ~/.cursor/task-pipeline/tp-state.mjs summary
+node ~/.cursor/task-pipeline/tp-state.mjs doctor [--dir path/to/tasks]   # report only
+node ~/.cursor/task-pipeline/tp-state.mjs doctor --fix [--dir …]       # repair file↔status / multi in-progress
 ```
+
+`doctor` prints JSON (`problems`, `info`, optional `fixed`) and exits `0` when `problems` is empty (after `--fix` if repairs cleared them), otherwise `1`. It does not commit. Orphan `runs/<id>` dirs are reported under `info` only and are not deleted.
 
 ## Batch mode (CLI)
 

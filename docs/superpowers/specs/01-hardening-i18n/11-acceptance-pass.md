@@ -1,7 +1,7 @@
 # Spec 01 — Task 11 — Acceptance pass (hardening + three locales)
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **11** · priority **P1**  
-**Depends on:** [01](01-state-transition-validation.done.md)–[10](10-tp-state-doctor.md)
+**Depends on:** [01](01-state-transition-validation.done.md)–[10](10-tp-state-doctor.done.md)
 
 ## Description
 

@@ -8,6 +8,7 @@
 //   tp-state.mjs show <taskId|prefix> [--dir D]
 //   tp-state.mjs set <taskId|prefix> [--status S] [--phase P] [--force] [--dir D]
 //   tp-state.mjs summary [--dir D]
+//   tp-state.mjs doctor [--dir D] [--fix]       report / repair state↔files
 //   tp-state.mjs hook-followup --workspace W     stop-hook: print followup JSON or nothing
 
 import { execFileSync } from 'node:child_process';
@@ -116,6 +117,8 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--force') {
       flags.force = true;
+    } else if (argv[i] === '--fix') {
+      flags.fix = true;
     } else if (argv[i].startsWith('--')) {
       flags[argv[i].slice(2)] = argv[i + 1];
       i += 1;
@@ -124,6 +127,199 @@ function parseArgs(argv) {
     }
   }
   return { positional, flags };
+}
+
+/** Current status/phase illegal under the same invariants as assertTransition (no adjacent-phase check). */
+function phaseStatusIllegalReason(task) {
+  const { status, phase } = task;
+  if (status === 'done') {
+    if (phase !== 'done') return `done requires phase=done (got ${formatPhase(phase)})`;
+    return null;
+  }
+  if (status === 'todo') {
+    if (phase !== null) return `todo requires phase=null (got ${formatPhase(phase)})`;
+    return null;
+  }
+  if (status === 'blocked') {
+    if (!WORK_PHASES.includes(phase)) {
+      return `blocked requires work phase (got ${formatPhase(phase)})`;
+    }
+    return null;
+  }
+  if (status === 'in-progress') {
+    if (phase === 'done') return 'in-progress cannot use phase=done';
+    if (phase !== null && !WORK_PHASES.includes(phase)) {
+      return `in-progress: invalid phase ${formatPhase(phase)}`;
+    }
+    return null;
+  }
+  return `unknown status ${status}`;
+}
+
+function collectDoctorProblems(tasksDir, state) {
+  const problems = [];
+  const info = [];
+  const lang = resolveLang(state.config ?? {}, { isNewInit: false });
+
+  const inProgress = state.tasks.filter((task) => task.status === 'in-progress');
+  if (inProgress.length > 1) {
+    problems.push({
+      kind: 'multipleInProgress',
+      ids: inProgress.map((task) => task.id),
+      message: t(lang, 'doctor.multipleInProgress', { ids: inProgress.map((task) => task.id).join(', ') }),
+    });
+  }
+
+  for (const task of state.tasks) {
+    const expected = fileNameFor(task);
+    const path = join(tasksDir, task.file);
+    if (!existsSync(path)) {
+      problems.push({
+        kind: 'missingTaskFile',
+        id: task.id,
+        file: task.file,
+        message: t(lang, 'doctor.missingTaskFile', { id: task.id, file: task.file }),
+      });
+    } else if (task.file !== expected) {
+      problems.push({
+        kind: 'fileStatusMismatch',
+        id: task.id,
+        status: task.status,
+        file: task.file,
+        expected,
+        message: t(lang, 'doctor.fileStatusMismatch', {
+          id: task.id,
+          file: task.file,
+          expected,
+          status: task.status,
+        }),
+      });
+    }
+
+    const illegal = phaseStatusIllegalReason(task);
+    if (illegal) {
+      problems.push({
+        kind: 'phaseStatusIllegal',
+        id: task.id,
+        status: task.status,
+        phase: task.phase,
+        detail: illegal,
+        message: t(lang, 'doctor.phaseStatusIllegal', { id: task.id, detail: illegal }),
+      });
+    }
+
+    if (
+      task.status === 'blocked' &&
+      existsSync(questionsPath(tasksDir, task.id)) &&
+      !questionsAllAnswered(tasksDir, task.id)
+    ) {
+      problems.push({
+        kind: 'questionsBlockedUnanswered',
+        id: task.id,
+        message: t(lang, 'doctor.questionsBlockedUnanswered', { id: task.id }),
+      });
+    }
+  }
+
+  const runsRoot = join(tasksDir, PIPELINE_DIR, 'runs');
+  if (existsSync(runsRoot)) {
+    const known = new Set(state.tasks.map((task) => task.id));
+    for (const entry of readdirSync(runsRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (known.has(entry.name)) continue;
+      info.push({
+        kind: 'orphanRunDirs',
+        id: entry.name,
+        message: t(lang, 'doctor.orphanRunDir', { id: entry.name }),
+      });
+    }
+  }
+
+  return { lang, problems, info };
+}
+
+function applyDoctorFixes(tasksDir, state, problems) {
+  const fixed = [];
+  const lang = resolveLang(state.config ?? {}, { isNewInit: false });
+
+  for (const problem of problems) {
+    if (problem.kind === 'fileStatusMismatch') {
+      const task = state.tasks.find((item) => item.id === problem.id);
+      if (!task) continue;
+      // Safer recovery: on-disk `.done` + status todo → promote status (do not rename away from done).
+      if (task.file.endsWith('.done.md') && task.status === 'todo') {
+        task.status = 'done';
+        task.phase = 'done';
+        fixed.push({ kind: 'fileStatusMismatch', id: task.id, action: 'status→done', message: t(lang, 'doctor.fixedStatusDone', { id: task.id }) });
+        continue;
+      }
+      try {
+        const renamed = syncFileName(tasksDir, task);
+        if (renamed) {
+          fixed.push({
+            kind: 'fileStatusMismatch',
+            id: task.id,
+            action: 'syncFileName',
+            from: renamed.from,
+            to: renamed.to,
+            message: t(lang, 'doctor.fixedRename', { id: task.id, from: renamed.from, to: renamed.to }),
+          });
+        }
+      } catch {
+        // leave for re-scan / report
+      }
+    }
+  }
+
+  const multi = problems.find((problem) => problem.kind === 'multipleInProgress');
+  if (multi) {
+    const inProgress = state.tasks.filter((task) => task.status === 'in-progress');
+    if (inProgress.length > 1) {
+      const [keep, ...rest] = inProgress;
+      for (const task of rest) {
+        task.status = 'blocked';
+        if (task.phase === null || task.phase === 'done') task.phase = 'plan';
+        const renamed = syncFileName(tasksDir, task);
+        fixed.push({
+          kind: 'multipleInProgress',
+          id: task.id,
+          action: '→blocked',
+          keep: keep.id,
+          renamed: renamed ?? null,
+          message: t(lang, 'doctor.fixedMultiBlocked', { id: task.id, keep: keep.id }),
+        });
+      }
+    }
+  }
+
+  if (fixed.length > 0) writeJson(statePath(tasksDir), state);
+  return fixed;
+}
+
+function cmdDoctor(flags) {
+  const tasksDir = resolveTasksDir(flags.dir);
+  const state = loadState(tasksDir);
+  const doFix = Boolean(flags.fix);
+  let collected = collectDoctorProblems(tasksDir, state);
+  let fixed = [];
+  if (doFix && collected.problems.length > 0) {
+    fixed = applyDoctorFixes(tasksDir, state, collected.problems);
+    // Reload from disk after renames / writes
+    const refreshed = loadState(tasksDir);
+    Object.assign(state, refreshed);
+    state.tasks = refreshed.tasks;
+    collected = collectDoctorProblems(tasksDir, state);
+  }
+  const report = {
+    tasksDir,
+    lang: collected.lang,
+    fix: doFix,
+    fixed,
+    problems: collected.problems,
+    info: collected.info,
+  };
+  print(report);
+  process.exit(collected.problems.length === 0 ? 0 : 1);
 }
 
 function phaseKey(phase) {
@@ -563,6 +759,9 @@ switch (command) {
     break;
   case 'summary':
     cmdSummary(flags);
+    break;
+  case 'doctor':
+    cmdDoctor(flags);
     break;
   case 'hook-followup':
     cmdHookFollowup(flags);

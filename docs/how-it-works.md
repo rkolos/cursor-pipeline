@@ -79,6 +79,21 @@ When `askedQuestion` is true and the followup is not `kind: next-task`, the hook
 
 `~/.cursor/task-pipeline/active.json` maps git workspace roots to the tasks directory last used with `init` in that repo. `hook-followup` uses this to find state after a task completes.
 
+## Doctor
+
+`tp-state doctor [--dir D] [--fix]` checks the active (or given) tasks folder:
+
+| Kind | Meaning |
+|------|---------|
+| `fileStatusMismatch` | `task.file` suffix ≠ `status` (todo↔plain, in-progress/blocked↔`.in-work`, done↔`.done`) |
+| `multipleInProgress` | more than one `in-progress` |
+| `phaseStatusIllegal` | status/phase pair violates the same invariants as `set` |
+| `missingTaskFile` | `task.file` absent on disk |
+| `questionsBlockedUnanswered` | `blocked` without answered `questions.md` |
+| `orphanRunDirs` | under `info`: `runs/<id>` with no task in state |
+
+With `--fix`: rename files to match **status** (`syncFileName`); if the file is already `.done.md` but status is `todo`, promote status to `done` instead; collapse extra in-progress tasks to `blocked` (same as `init`). Does not delete orphans, fill answers, or create a git commit. Exit `0` only when `problems` is empty after the run.
+
 ## Batch mode (`run-loop.sh`)
 
 Each loop iteration spawns `cursor-agent` with `TP_AUTONOMOUS=1` and the `/task-pipeline` prompt. The agent may complete only part of a task per invocation; the script retries until status changes, hits `done`, `blocked`, or stalls twice with no phase change.

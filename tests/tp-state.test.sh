@@ -184,4 +184,117 @@ assert tasks["001-x"]["status"] == "in-progress", tasks["001-x"]
 assert tasks["002-y"]["status"] == "blocked", tasks["002-y"]
 PY
 
+# --- doctor: mismatch detection + --fix ---
+DOC="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$INF" "$INF2" "$DOC" "$LANG_TMP"' EXIT
+cat > "$DOC/001-ok.md" <<'EOF'
+# ok
+EOF
+cat > "$DOC/002-mis.md" <<'EOF'
+# mis
+EOF
+$TP init "$DOC" >/dev/null
+# Corrupt state: status done but file still plain .md
+python3 - <<PY
+import json
+from pathlib import Path
+p = Path("$DOC") / ".pipeline" / "state.json"
+state = json.loads(p.read_text())
+for task in state["tasks"]:
+    if task["id"] == "002-mis":
+        task["status"] = "done"
+        task["phase"] = "done"
+        # leave task["file"] as 002-mis.md → mismatch
+p.write_text(json.dumps(state, indent=2) + "\n")
+PY
+doc_out="$(mktemp)"
+ec=0
+$TP doctor --dir "$DOC" >"$doc_out" 2>/dev/null || ec=$?
+[[ "$ec" -eq 1 ]] || { echo "FAIL: doctor should exit 1 on problems"; cat "$doc_out"; exit 1; }
+python3 - <<PY
+import json
+r = json.load(open("$doc_out"))
+kinds = [p["kind"] for p in r["problems"]]
+assert "fileStatusMismatch" in kinds, r
+assert r.get("lang"), r
+PY
+ec=0
+$TP doctor --fix --dir "$DOC" >"$doc_out" 2>/dev/null || ec=$?
+[[ "$ec" -eq 0 ]] || { echo "FAIL: doctor --fix should exit 0 when cleaned"; cat "$doc_out"; exit 1; }
+[[ -f "$DOC/002-mis.done.md" ]] || { echo "FAIL: doctor --fix should rename to .done.md"; exit 1; }
+python3 - <<PY
+import json
+r = json.load(open("$doc_out"))
+assert r["problems"] == [], r
+assert any(f.get("kind") == "fileStatusMismatch" for f in r["fixed"]), r
+PY
+
+# multiple in-progress → doctor --fix
+DOC2="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$INF" "$INF2" "$DOC" "$DOC2" "$LANG_TMP"' EXIT
+cat > "$DOC2/a.in-work.md" <<'EOF'
+# a
+EOF
+cat > "$DOC2/b.in-work.md" <<'EOF'
+# b
+EOF
+mkdir -p "$DOC2/.pipeline"
+python3 - <<PY
+import json
+from pathlib import Path
+root = Path("$DOC2")
+state = {
+  "version": 1,
+  "config": {"gateAfterFact": False, "maxCheckRounds": 2, "push": True, "reviewModel": None, "continueNextTask": True, "lang": "en"},
+  "tasks": [
+    {"id": "a", "file": "a.in-work.md", "status": "in-progress", "phase": "plan"},
+    {"id": "b", "file": "b.in-work.md", "status": "in-progress", "phase": "plan"},
+  ],
+}
+(root / ".pipeline" / "state.json").write_text(json.dumps(state, indent=2) + "\n")
+PY
+ec=0
+$TP doctor --dir "$DOC2" >"$doc_out" 2>/dev/null || ec=$?
+[[ "$ec" -eq 1 ]] || { echo "FAIL: doctor should flag multipleInProgress"; cat "$doc_out"; exit 1; }
+ec=0
+$TP doctor --fix --dir "$DOC2" >"$doc_out" 2>/dev/null || ec=$?
+[[ "$ec" -eq 0 ]] || { echo "FAIL: doctor --fix multi should exit 0"; cat "$doc_out"; exit 1; }
+python3 - <<PY
+import json
+tasks = {t["id"]: t for t in json.load(open("$DOC2/.pipeline/state.json"))["tasks"]}
+assert tasks["a"]["status"] == "in-progress", tasks
+assert tasks["b"]["status"] == "blocked", tasks
+r = json.load(open("$doc_out"))
+assert r["problems"] == [], r
+PY
+
+# .done file + status todo → promote status on --fix
+DOC3="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$INF" "$INF2" "$DOC" "$DOC2" "$DOC3" "$LANG_TMP"' EXIT
+cat > "$DOC3/c.done.md" <<'EOF'
+# c
+EOF
+mkdir -p "$DOC3/.pipeline"
+python3 - <<PY
+import json
+from pathlib import Path
+root = Path("$DOC3")
+state = {
+  "version": 1,
+  "config": {"lang": "en", "gateAfterFact": False, "maxCheckRounds": 2, "push": True, "reviewModel": None, "continueNextTask": True},
+  "tasks": [
+    {"id": "c", "file": "c.done.md", "status": "todo", "phase": None},
+  ],
+}
+(root / ".pipeline" / "state.json").write_text(json.dumps(state, indent=2) + "\n")
+PY
+$TP doctor --fix --dir "$DOC3" >"$doc_out" 2>/dev/null
+[[ -f "$DOC3/c.done.md" ]] || { echo "FAIL: should keep .done.md"; exit 1; }
+python3 - <<PY
+import json
+t = json.load(open("$DOC3/.pipeline/state.json"))["tasks"][0]
+assert t["status"] == "done" and t["phase"] == "done", t
+assert t["file"] == "c.done.md", t
+PY
+
 echo "tp-state.test.sh OK"
