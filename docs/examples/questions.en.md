@@ -1,6 +1,6 @@
 # Example `questions.md` (English markers)
 
-Used by the agent under `runs/<taskId>/questions.md` when `lang=en` (or any locale — the parser accepts all synonyms).
+Used by the agent under `runs/<taskId>/questions.md` when `lang=en` (or any locale — the parser accepts all synonyms). For Ukrainian labels use `Рекомендація:` / `Відповідь:` (`lang=uk`).
 
 ```markdown
 ## Q1: Which default for new pipeline state?

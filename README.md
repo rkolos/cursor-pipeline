@@ -177,7 +177,7 @@ Only one task may be `in-progress`; finish or reset via `tp-state set`.
 
 ## Language note
 
-Agent prompts live under `commands/<lang>/` and `rules/<lang>/` (`ru` and `en` shipped; `install.sh` currently links `ru` until `--lang` in a later task). CLI/hook strings are in `scripts/locales/*.json`. Documentation in this repo is English.
+Agent prompts live under `commands/<lang>/` and `rules/<lang>/` (`en`, `uk`, and `ru` shipped; `install.sh` currently links `ru` until `--lang` in a later task). CLI/hook strings are in `scripts/locales/*.json`. Documentation in this repo is English.
 
 ## Repository layout
 

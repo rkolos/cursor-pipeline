@@ -58,9 +58,9 @@
     },
     {
       "id": "08-locale-ukrainian",
-      "file": "08-locale-ukrainian.md",
-      "status": "todo",
-      "phase": null
+      "file": "08-locale-ukrainian.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "09-install-lang-and-docs",

@@ -138,4 +138,27 @@ out="$($TP hook-followup --workspace "$EN")"
 echo "$out" | grep -q 'Continue the task pipeline' || { echo "FAIL: en followup should be English"; echo "$out"; exit 1; }
 echo "$out" | grep -qiE 'Продолжай|Продовжуй' && { echo "FAIL: en followup must not be RU/UK"; echo "$out"; exit 1; }
 
+# --- lang=uk next-task followup is Ukrainian ---
+UK="$(mktemp -d)"
+cat > "$UK/001-u.md" <<'EOF'
+# u
+EOF
+cat > "$UK/002-v.md" <<'EOF'
+# v
+EOF
+$TP init "$UK" >/dev/null
+python3 - <<PY
+import json
+from pathlib import Path
+p = Path("$UK") / ".pipeline" / "state.json"
+state = json.loads(p.read_text())
+state["config"]["lang"] = "uk"
+p.write_text(json.dumps(state, indent=2) + "\n")
+PY
+$TP set 001-u --status in-progress --phase plan --dir "$UK" >/dev/null
+$TP set 001-u --status done --phase done --dir "$UK" >/dev/null
+out="$($TP hook-followup --workspace "$UK")"
+echo "$out" | grep -q 'Продовжуй конвеєр' || { echo "FAIL: uk followup should be Ukrainian"; echo "$out"; exit 1; }
+echo "$out" | grep -q 'Continue the task pipeline' && { echo "FAIL: uk followup must not be English"; echo "$out"; exit 1; }
+
 echo "hook-followup.test.sh OK"
