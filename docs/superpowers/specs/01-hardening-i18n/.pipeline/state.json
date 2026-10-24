@@ -76,9 +76,9 @@
     },
     {
       "id": "11-acceptance-pass",
-      "file": "11-acceptance-pass.md",
-      "status": "todo",
-      "phase": null
+      "file": "11-acceptance-pass.done.md",
+      "status": "done",
+      "phase": "done"
     }
   ]
 }
