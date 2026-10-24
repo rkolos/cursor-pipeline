@@ -29,6 +29,8 @@ Statuses: `todo`, `in-progress`, `blocked`, `done`. Only one task may be `in-pro
 
 Cross-references inside the task folder are rewritten automatically.
 
+On `init`, task ids **not** already in `state.json` get status from the filename: `.done.md` → `done`, `.in-work.md` → `in-progress` (phase `plan`), plain `.md` → `todo`. Existing ids keep their stored status/phase (only the `file` field is refreshed). If several files infer as `in-progress`, the first by sorted name stays `in-progress` and the rest become `blocked` (stderr warning). Exact `blocked` cannot be recovered from the name alone — both `blocked` and `in-progress` use `.in-work.md`.
+
 ## Artifacts
 
 Under `<tasksDir>/.pipeline/runs/<id>/`:

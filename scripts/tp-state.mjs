@@ -50,6 +50,13 @@ function taskIdOf(file) {
   return basename(file, '.md').replace(SUFFIX_PATTERN, '');
 }
 
+/** Infer status/phase for a task file not yet in state.json. */
+function statusFromFileName(file) {
+  if (file.endsWith('.done.md')) return { status: 'done', phase: 'done' };
+  if (file.endsWith('.in-work.md')) return { status: 'in-progress', phase: 'plan' };
+  return { status: 'todo', phase: null };
+}
+
 function fileNameFor(task) {
   return `${task.id}${STATUS_SUFFIX[task.status]}.md`;
 }
@@ -327,9 +334,22 @@ function cmdInit(dirArg) {
     const id = taskIdOf(file);
     const existing = known.get(id);
     if (existing) return { ...existing, file };
-    const status = file.endsWith('.done.md') ? 'done' : 'todo';
-    return { id, file, status, phase: status === 'done' ? 'done' : null };
+    const inferred = statusFromFileName(file);
+    return { id, file, status: inferred.status, phase: inferred.phase };
   });
+
+  const inProgress = tasks.filter((task) => task.status === 'in-progress');
+  if (inProgress.length > 1) {
+    const [keep, ...rest] = inProgress;
+    for (const task of rest) {
+      task.status = 'blocked';
+      if (task.phase === null || task.phase === 'done') task.phase = 'plan';
+    }
+    process.stderr.write(
+      `tp-state: предупреждение: несколько in-progress при init, оставлен ${keep.id}, в blocked: ${rest.map((t) => t.id).join(', ')}\n`,
+    );
+  }
+
   const missing = [...known.keys()].filter((id) => !tasks.some((task) => task.id === id));
   const state = {
     version: 1,

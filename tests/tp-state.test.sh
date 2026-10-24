@@ -122,4 +122,46 @@ python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$force_out" || { ech
 phase_forced="$(python3 -c 'import json; t=json.load(open("'"$TMP"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="003-gamma"][0]["phase"])')"
 [[ "$phase_forced" == "commit" ]] || { echo "FAIL: force jump should set commit, got $phase_forced"; exit 1; }
 
+# --- init: infer status from filename ---
+INF="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$INF"' EXIT
+
+cat > "$INF/001-a.in-work.md" <<'EOF'
+# 001-a
+EOF
+cat > "$INF/002-b.md" <<'EOF'
+# 002-b
+EOF
+$TP init "$INF" >/dev/null
+st_a="$(python3 -c 'import json; t=json.load(open("'"$INF"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="001-a"][0]["status"])')"
+st_b="$(python3 -c 'import json; t=json.load(open("'"$INF"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="002-b"][0]["status"])')"
+[[ "$st_a" == "in-progress" ]] || { echo "FAIL: 001-a should be in-progress from .in-work, got $st_a"; exit 1; }
+[[ "$st_b" == "todo" ]] || { echo "FAIL: 002-b should be todo, got $st_b"; exit 1; }
+
+# known id: phase survives re-init
+$TP set 001-a --phase fact --dir "$INF" >/dev/null
+$TP init "$INF" >/dev/null
+ph_a="$(python3 -c 'import json; t=json.load(open("'"$INF"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="001-a"][0]["phase"])')"
+[[ "$ph_a" == "fact" ]] || { echo "FAIL: known phase should stay fact after re-init, got $ph_a"; exit 1; }
+
+# two .in-work without state → one in-progress, one blocked
+INF2="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$INF" "$INF2"' EXIT
+cat > "$INF2/001-x.in-work.md" <<'EOF'
+# 001-x
+EOF
+cat > "$INF2/002-y.in-work.md" <<'EOF'
+# 002-y
+EOF
+init_out="$(mktemp)"
+init_stderr="$(mktemp)"
+$TP init "$INF2" >"$init_out" 2>"$init_stderr"
+grep -q 'несколько in-progress' "$init_stderr" || { echo "FAIL: expected multi in-progress warning"; cat "$init_stderr"; exit 1; }
+python3 - <<PY
+import json
+tasks = {t["id"]: t for t in json.load(open("$INF2/.pipeline/state.json"))["tasks"]}
+assert tasks["001-x"]["status"] == "in-progress", tasks["001-x"]
+assert tasks["002-y"]["status"] == "blocked", tasks["002-y"]
+PY
+
 echo "tp-state.test.sh OK"

@@ -22,9 +22,9 @@
     },
     {
       "id": "02-init-infer-status-from-filename",
-      "file": "02-init-infer-status-from-filename.md",
-      "status": "todo",
-      "phase": null
+      "file": "02-init-infer-status-from-filename.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "03-commit-before-done",
