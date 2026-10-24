@@ -12,10 +12,12 @@ Each task moves through phases stored in `state.json`:
 | `implement` | Code changes per plan |
 | `check` | Subagent runs `tp-check.md` → `check-report.md` |
 | `fix` | Address `fix-plan.md`; may loop to `check` up to `maxCheckRounds` |
-| `commit` | Git commit/push, Docker cleanup, mark task `done` |
-| `done` | Terminal phase |
+| `commit` | Remote, checks, Docker cleanup, then one git commit; mark `done` only with that commit (rollback if commit fails) |
+| `done` | Terminal status/phase after a successful git commit |
 
 Statuses: `todo`, `in-progress`, `blocked`, `done`. Only one task may be `in-progress`.
+
+On the commit phase the agent stays `in-progress` until `git commit` succeeds: `TP set … done` (task file rename) immediately before staging that commit; if the commit fails, roll back with `TP set … --status in-progress --phase commit --force`. Push failure does not undo `done`.
 
 `tp-state set` validates status/phase invariants (for example `done` implies `phase=done`, `todo` implies `phase=null`) and, while status stays `in-progress`, only allows adjacent phase moves along the pipeline (`plan → fact → … → commit`, plus documented shortcuts such as `fact → implement` and `check → commit`). Use `--force` to bypass those checks for manual repair; the status/phase whitelist and the single `in-progress` rule still apply.
 

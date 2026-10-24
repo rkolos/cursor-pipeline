@@ -136,6 +136,7 @@ install_symlink "$REPO_ROOT/commands/tp-fact.md" "$COMMANDS_DIR/tp-fact.md"
 install_symlink "$REPO_ROOT/commands/tp-check.md" "$COMMANDS_DIR/tp-check.md"
 
 echo "Rules:"
+# All task-pipeline-*.mdc (no-stop, autonomous-checks, recommended-answers, commit-before-done, …)
 for src in "$REPO_ROOT/rules"/task-pipeline-*.mdc; do
   [[ -f "$src" ]] || continue
   install_symlink "$src" "$RULES_DIR/$(basename "$src")"

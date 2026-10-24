@@ -28,9 +28,9 @@
     },
     {
       "id": "03-commit-before-done",
-      "file": "03-commit-before-done.md",
-      "status": "todo",
-      "phase": null
+      "file": "03-commit-before-done.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "04-merge-hooks-update",

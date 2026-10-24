@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 01 | [01-state-transition-validation.done.md](01-state-transition-validation.done.md) | P0 | Допустимые `status`/`phase` в `tp-state set` |
 | 02 | [02-init-infer-status-from-filename.done.md](02-init-infer-status-from-filename.done.md) | P0 | Infer из суффиксов при `init`: `.in-work`→`in-progress`, `.done`→`done`, plain→`todo` (`blocked` из имени не восстанавливается) |
-| 03 | [03-commit-before-done.md](03-commit-before-done.md) | P0 | `done` только после успешного commit (+ правило/команда) |
+| 03 | [03-commit-before-done.done.md](03-commit-before-done.done.md) | P0 | `done` только после успешного commit (+ правило/команда) |
 | 04 | [04-merge-hooks-update.md](04-merge-hooks-update.md) | P0 | Reinstall обновляет pipeline-hooks по marker |
 | 05 | [05-hook-followup-tests-ci.md](05-hook-followup-tests-ci.md) | P0 | Тесты `hook-followup` + GitHub Actions |
 | 06 | [06-i18n-foundation.md](06-i18n-foundation.md) | P0 | `config.lang`, каталоги строк, парсер Q-меток EN/UK/RU |
