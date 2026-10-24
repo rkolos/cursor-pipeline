@@ -40,9 +40,9 @@
     },
     {
       "id": "05-hook-followup-tests-ci",
-      "file": "05-hook-followup-tests-ci.md",
-      "status": "todo",
-      "phase": null
+      "file": "05-hook-followup-tests-ci.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "06-i18n-foundation",

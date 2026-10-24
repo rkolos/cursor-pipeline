@@ -20,7 +20,7 @@
 | 02 | [02-init-infer-status-from-filename.done.md](02-init-infer-status-from-filename.done.md) | P0 | Infer из суффиксов при `init`: `.in-work`→`in-progress`, `.done`→`done`, plain→`todo` (`blocked` из имени не восстанавливается) |
 | 03 | [03-commit-before-done.done.md](03-commit-before-done.done.md) | P0 | `done` только после успешного commit (+ правило/команда) |
 | 04 | [04-merge-hooks-update.done.md](04-merge-hooks-update.done.md) | P0 | Reinstall обновляет pipeline-hooks по marker |
-| 05 | [05-hook-followup-tests-ci.md](05-hook-followup-tests-ci.md) | P0 | Тесты `hook-followup` + GitHub Actions |
+| 05 | [05-hook-followup-tests-ci.done.md](05-hook-followup-tests-ci.done.md) | P0 | Тесты `hook-followup` + GitHub Actions |
 | 06 | [06-i18n-foundation.md](06-i18n-foundation.md) | P0 | `config.lang`, каталоги строк, парсер Q-меток EN/UK/RU |
 | 07 | [07-locale-english.md](07-locale-english.md) | P0 | Полный EN: commands, rules, followup/CLI |
 | 08 | [08-locale-ukrainian.md](08-locale-ukrainian.md) | P0 | Полный UK: commands, rules, followup/CLI |

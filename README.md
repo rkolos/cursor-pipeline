@@ -39,6 +39,10 @@ flowchart LR
 
 See [docs/how-it-works.md](docs/how-it-works.md) for details on blocked tasks, `questions.md`, and batch mode.
 
+## CI
+
+GitHub Actions (`.github/workflows/test.yml`) runs `./tests/run.sh` on push and pull requests (Node 20). Locally: `./tests/run.sh` (uses a temporary `HOME` so tests do not touch your real `~/.cursor/task-pipeline`).
+
 ## Requirements
 
 | Component | Required for |

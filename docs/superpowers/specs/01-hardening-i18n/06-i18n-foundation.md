@@ -1,7 +1,7 @@
 # Spec 01 — Task 06 — i18n foundation (`config.lang`, locales, questions markers)
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **06** · priority **P0**  
-**Depends on:** [05](05-hook-followup-tests-ci.md) желательно (тесты не должны сломаться)
+**Depends on:** [05](05-hook-followup-tests-ci.done.md) желательно (тесты не должны сломаться)
 
 ## Description
 

@@ -13,6 +13,7 @@ From the repo root:
 - `hook-question.test.sh` — `askedQuestion` heuristic (rhetorical “continue?” vs real questions)
 - `tp-state.test.sh` — `init` / `next` / `set` / `hook-followup` / auto-unblock from `Рекомендация:`
 - `merge-hooks.test.sh` — merge/update/uninstall of pipeline hooks without touching others
+- `hook-followup.test.sh` — `tp-state hook-followup` branches (resume, gate, blocked, next-task)
 
 Requires Node.js on PATH.
 
