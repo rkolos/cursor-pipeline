@@ -68,10 +68,9 @@ function main() {
     if (pipelineEntries.length === 0) continue;
 
     const current = Array.isArray(base.hooks[event]) ? base.hooks[event] : [];
-    const hasPipeline = current.some(isPipelineHook);
-    if (!hasPipeline) {
-      base.hooks[event] = [...current, ...pipelineEntries];
-    }
+    const others = current.filter((entry) => !isPipelineHook(entry));
+    // Replace pipeline entries so reinstall picks up timeout/loop_limit/command updates.
+    base.hooks[event] = [...others, ...pipelineEntries];
   }
 
   mkdirSync(dirname(target), { recursive: true });

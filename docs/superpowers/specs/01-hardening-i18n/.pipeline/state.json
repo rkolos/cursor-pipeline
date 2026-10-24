@@ -34,9 +34,9 @@
     },
     {
       "id": "04-merge-hooks-update",
-      "file": "04-merge-hooks-update.md",
-      "status": "todo",
-      "phase": null
+      "file": "04-merge-hooks-update.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "05-hook-followup-tests-ci",

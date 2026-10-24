@@ -15,4 +15,7 @@ echo "=== hook-question ==="
 echo "=== tp-state ==="
 "$REPO_ROOT/tests/tp-state.test.sh"
 
+echo "=== merge-hooks ==="
+"$REPO_ROOT/tests/merge-hooks.test.sh"
+
 echo "All tests passed."
