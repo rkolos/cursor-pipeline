@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveLang, t } from './i18n.mjs';
 
 const HOME_DIR = join(homedir(), '.cursor', 'task-pipeline');
 const SESSIONS_DIR = join(HOME_DIR, 'sessions');
@@ -116,9 +117,10 @@ function onStop(input) {
   }
 
   let notice = result.notice;
+  const lang = result.lang || resolveLang({}, { isNewInit: true });
   // Previous task is done — no open question; rhetorical "continue?" must not block next-task followup.
   if (result.followup && session.askedQuestion && result.kind !== 'next-task') {
-    notice = `${result.taskId}: агент задал вопрос в чате — нужен ваш ответ`;
+    notice = t(lang, 'notice.askedQuestion', { id: result.taskId });
     result.followup = undefined;
   }
   if (notice && notice !== session.lastNotice) {

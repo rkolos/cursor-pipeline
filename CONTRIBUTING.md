@@ -19,7 +19,7 @@ Requires Node.js on PATH.
 
 ## Changing agent prompts
 
-Files under `commands/` and `rules/` drive agent behavior. After editing:
+Localized agent prompts live under `commands/<lang>/` and `rules/<lang>/` (`ru` is the install baseline until `install.sh --lang`). CLI/hook strings are in `scripts/locales/*.json` (`scripts/i18n.mjs`). After editing:
 
 1. Run `./tests/run.sh`
 2. Smoke-test on [docs/examples/tasks](docs/examples/tasks) with `/task-pipeline` in a throwaway project

@@ -1,7 +1,7 @@
 # Spec 01 — Task 08 — Ukrainian locale (commands, rules, strings)
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **08** · priority **P0**  
-**Depends on:** [06](06-i18n-foundation.md), [07](07-locale-english.md) (можно переводить с EN как с канона открытого репо)
+**Depends on:** [06](06-i18n-foundation.done.md), [07](07-locale-english.md) (можно переводить с EN как с канона открытого репо)
 
 ## Description
 

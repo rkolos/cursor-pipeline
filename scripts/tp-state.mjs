@@ -14,10 +14,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { normalizeLang, resolveLang, t } from './i18n.mjs';
 
 const HOME_DIR = join(homedir(), '.cursor', 'task-pipeline');
 const ACTIVE_PATH = join(HOME_DIR, 'active.json');
 const PIPELINE_DIR = '.pipeline';
+/** CLI message language until a state is loaded (TP_LANG or en). */
+let cliLang = resolveLang({}, { isNewInit: true });
 
 const STATUSES = ['todo', 'in-progress', 'blocked', 'done'];
 const PHASES = ['plan', 'fact', 'awaiting-approval', 'implement', 'check', 'fix', 'commit', 'done'];
@@ -82,8 +85,8 @@ function syncFileName(tasksDir, task) {
   if (task.file === target) return null;
   const from = join(tasksDir, task.file);
   const to = join(tasksDir, target);
-  if (!existsSync(from)) fail(`файл задачи ${task.file} не найден — запустите init, чтобы пересинхронизировать`);
-  if (existsSync(to)) fail(`не могу переименовать ${task.file}: ${target} уже существует`);
+  if (!existsSync(from)) failKey('fail.taskFileMissing', { file: task.file });
+  if (existsSync(to)) failKey('fail.renameExists', { from: task.file, to: target });
   renameSync(from, to);
   const previous = task.file;
   task.file = target;
@@ -93,6 +96,14 @@ function syncFileName(tasksDir, task) {
 function fail(message) {
   process.stderr.write(`tp-state: ${message}\n`);
   process.exit(1);
+}
+
+function failKey(key, vars) {
+  fail(t(cliLang, key, vars));
+}
+
+function useLangFromConfig(config) {
+  cliLang = resolveLang(config ?? {}, { isNewInit: false });
 }
 
 function print(value) {
@@ -131,7 +142,7 @@ function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseF
   let phase = nextPhase;
 
   if (force) {
-    process.stderr.write('tp-state: предупреждение: --force, проверка переходов отключена\n');
+    process.stderr.write(`tp-state: ${t(cliLang, 'warn.force')}\n`);
     if (nextStatus === 'done' && !phaseFlagPassed) phase = 'done';
     if (nextStatus === 'todo' && !phaseFlagPassed) phase = null;
     return phase;
@@ -140,7 +151,7 @@ function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseF
   if (nextStatus === 'done') {
     if (!phaseFlagPassed) phase = 'done';
     if (phase !== 'done') {
-      fail(`status=done требует phase=done (сейчас phase=${formatPhase(phase)})`);
+      failKey('fail.doneNeedsPhaseDone', { phase: formatPhase(phase) });
     }
     return phase;
   }
@@ -148,7 +159,7 @@ function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseF
   if (nextStatus === 'todo') {
     if (!phaseFlagPassed) phase = null;
     if (phase !== null) {
-      fail(`status=todo требует phase=null (сейчас phase=${formatPhase(phase)})`);
+      failKey('fail.todoNeedsPhaseNull', { phase: formatPhase(phase) });
     }
     return phase;
   }
@@ -156,21 +167,21 @@ function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseF
   if (nextStatus === 'blocked') {
     if (!phaseFlagPassed) {
       if (prevPhase === null || prevPhase === 'done') {
-        fail(`status=blocked требует рабочую phase (сейчас phase=${formatPhase(prevPhase)})`);
+        failKey('fail.blockedNeedsWorkPhase', { phase: formatPhase(prevPhase) });
       }
       phase = prevPhase;
     } else if (!WORK_PHASES.includes(phase)) {
-      fail(`status=blocked: phase ${formatPhase(phase)}; ожидалось: ${WORK_PHASES.join(' | ')}`);
+      failKey('fail.blockedPhaseInvalid', { phase: formatPhase(phase), expected: WORK_PHASES.join(' | ') });
     }
     return phase;
   }
 
   // in-progress
   if (phase === 'done') {
-    fail('status=in-progress не допускает phase=done — сначала --status done');
+    failKey('fail.inProgressNoDonePhase');
   }
   if (phase !== null && !WORK_PHASES.includes(phase)) {
-    fail(`status=in-progress: phase ${formatPhase(phase)}; ожидалось: null | ${WORK_PHASES.join(' | ')}`);
+    failKey('fail.inProgressPhaseInvalid', { phase: formatPhase(phase), expected: WORK_PHASES.join(' | ') });
   }
 
   if (prevStatus === 'in-progress' && nextStatus === 'in-progress' && phase !== prevPhase) {
@@ -178,9 +189,11 @@ function assertTransition({ prevStatus, prevPhase, nextStatus, nextPhase, phaseF
     const allowed = PHASE_NEXT[from] ?? [];
     if (!allowed.includes(phase)) {
       const expect = allowed.length > 0 ? allowed.join(' | ') : '(нет допустимых)';
-      fail(
-        `запрещён переход phase ${formatPhase(prevPhase)} → ${formatPhase(phase)}; ожидалось: ${expect}`,
-      );
+      failKey('fail.phaseTransition', {
+        from: formatPhase(prevPhase),
+        to: formatPhase(phase),
+        expected: expect,
+      });
     }
   }
 
@@ -212,12 +225,14 @@ function statePath(tasksDir) {
 function resolveTasksDir(flagDir) {
   if (flagDir) {
     const dir = resolve(flagDir);
-    if (!existsSync(statePath(dir))) fail(`в ${dir} нет ${PIPELINE_DIR}/state.json — сначала init`);
+    if (!existsSync(statePath(dir))) {
+      failKey('fail.noStateInDir', { dir, pipeline: PIPELINE_DIR });
+    }
     return dir;
   }
   const workspace = workspaceRootOf(process.cwd());
   const active = readJson(ACTIVE_PATH, {})[workspace];
-  if (!active) fail(`для воркспейса ${workspace} нет активной папки задач — запустите init <tasksDir>`);
+  if (!active) failKey('fail.noActiveFolder', { workspace });
   return active;
 }
 
@@ -251,7 +266,15 @@ function questionsPath(tasksDir, taskId) {
   return join(tasksDir, PIPELINE_DIR, 'runs', taskId, 'questions.md');
 }
 
-/** Подставляет «Ответ: <рекомендация>», если Ответ пустой, а в блоке Q есть «Рекомендация: …». */
+const REC_LABEL = 'Рекомендация|Recommendation|Рекомендація';
+const ANS_LABEL = 'Ответ|Answer|Відповідь';
+const ANSWER_FOR_REC = {
+  Рекомендация: 'Ответ',
+  Recommendation: 'Answer',
+  Рекомендація: 'Відповідь',
+};
+
+/** Подставляет Answer/Ответ/Відповідь из Recommendation/…, сохраняя язык метки. */
 function applyRecommendedAnswers(tasksDir, taskId) {
   const path = questionsPath(tasksDir, taskId);
   if (!existsSync(path)) return { applied: 0 };
@@ -260,13 +283,15 @@ function applyRecommendedAnswers(tasksDir, taskId) {
   let applied = 0;
   const next = parts.map((part) => {
     if (!/^##\s+Q\d+/im.test(part)) return part;
-    const rec = part.match(/Рекомендация:\s*([A-Za-z0-9]+)/i);
-    const ansLine = part.match(/^Ответ:\s*(.*)$/m);
-    const answer = (ansLine?.[1] ?? '').trim();
+    const rec = part.match(new RegExp(`(${REC_LABEL}):\\s*([A-Za-z0-9]+)`, 'i'));
+    const ansLine = part.match(new RegExp(`^(${ANS_LABEL}):\\s*(.*)$`, 'm'));
+    const answer = (ansLine?.[2] ?? '').trim();
     if (answer || !rec) return part;
     applied += 1;
-    const filled = `Ответ: ${rec[1]}`;
-    if (ansLine) return part.replace(/^Ответ:\s*.*$/m, filled);
+    const recLabel = Object.keys(ANSWER_FOR_REC).find((label) => label.toLowerCase() === rec[1].toLowerCase()) ?? 'Рекомендация';
+    const ansLabel = ANSWER_FOR_REC[recLabel];
+    const filled = `${ansLabel}: ${rec[2]}`;
+    if (ansLine) return part.replace(new RegExp(`^(${ANS_LABEL}):\\s*.*$`, 'm'), filled);
     return `${part.replace(/\s*$/, '')}\n${filled}\n`;
   });
   const text = next.join('');
@@ -274,13 +299,13 @@ function applyRecommendedAnswers(tasksDir, taskId) {
   return { applied };
 }
 
-/** true, если questions.md есть и у каждого ## QN… непустой «Ответ: …». */
+/** true, если questions.md есть и у каждого ## QN… непустой Answer/Ответ/Відповідь. */
 function questionsAllAnswered(tasksDir, taskId) {
   const path = questionsPath(tasksDir, taskId);
   if (!existsSync(path)) return false;
   const text = readFileSync(path, 'utf8');
   const questionCount = [...text.matchAll(/^##\s+Q\d+/gim)].length;
-  const answers = [...text.matchAll(/^Ответ:\s*(.*)$/gim)].map((m) => (m[1] ?? '').trim());
+  const answers = [...text.matchAll(new RegExp(`^(?:${ANS_LABEL}):\\s*(.*)$`, 'gim'))].map((m) => (m[1] ?? '').trim());
   if (answers.length === 0) return false;
   if (questionCount > 0 && answers.length < questionCount) return false;
   return answers.every((a) => a.length > 0);
@@ -302,8 +327,9 @@ function tryUnblockFromQuestions(tasksDir, state, first) {
 
 function loadState(tasksDir) {
   const state = readJson(statePath(tasksDir), null);
-  if (!state) fail(`нет ${statePath(tasksDir)}`);
+  if (!state) failKey('fail.noStateFile', { path: statePath(tasksDir) });
   state.config = { ...DEFAULT_CONFIG, ...state.config };
+  useLangFromConfig(state.config);
   return state;
 }
 
@@ -312,23 +338,26 @@ function findTask(state, ref) {
   if (exact) return exact;
   const matches = state.tasks.filter((task) => task.id.startsWith(ref));
   if (matches.length === 1) return matches[0];
-  if (matches.length === 0) fail(`задача ${ref} не найдена`);
-  fail(`неоднозначно: ${matches.map((task) => task.id).join(', ')}`);
+  if (matches.length === 0) failKey('fail.taskNotFound', { ref });
+  failKey('fail.taskAmbiguous', { ids: matches.map((task) => task.id).join(', ') });
 }
 
 function cmdInit(dirArg) {
-  if (!dirArg) fail('укажите папку с задачами');
+  if (!dirArg) failKey('fail.needTasksDir');
   const requested = isAbsolute(dirArg) ? dirArg : resolve(process.cwd(), dirArg);
-  if (!existsSync(requested)) fail(`папка ${requested} не существует`);
+  if (!existsSync(requested)) failKey('fail.dirMissing', { dir: requested });
   const tasksDir = realpathSync(requested);
 
   const previous = readJson(statePath(tasksDir), null);
+  const isNew = !previous;
   const known = new Map((previous?.tasks ?? []).map((task) => [task.id, task]));
   const files = listTaskFiles(tasksDir);
-  if (files.length === 0) fail(`в ${tasksDir} нет .md файлов задач`);
+  if (files.length === 0) failKey('fail.noTaskFiles', { dir: tasksDir });
 
   const duplicates = files.map(taskIdOf).filter((id, i, ids) => ids.indexOf(id) !== i);
-  if (duplicates.length > 0) fail(`несколько файлов для одной задачи: ${[...new Set(duplicates)].join(', ')}`);
+  if (duplicates.length > 0) {
+    failKey('fail.duplicateTaskFiles', { ids: [...new Set(duplicates)].join(', ') });
+  }
 
   const tasks = files.map((file) => {
     const id = taskIdOf(file);
@@ -346,14 +375,21 @@ function cmdInit(dirArg) {
       if (task.phase === null || task.phase === 'done') task.phase = 'plan';
     }
     process.stderr.write(
-      `tp-state: предупреждение: несколько in-progress при init, оставлен ${keep.id}, в blocked: ${rest.map((t) => t.id).join(', ')}\n`,
+      `tp-state: ${t(cliLang, 'warn.multiInProgress', { keep: keep.id, rest: rest.map((task) => task.id).join(', ') })}\n`,
     );
   }
 
   const missing = [...known.keys()].filter((id) => !tasks.some((task) => task.id === id));
+  const config = { ...DEFAULT_CONFIG, ...previous?.config };
+  if (isNew) {
+    config.lang = normalizeLang(process.env.TP_LANG) || 'en';
+  } else if (!normalizeLang(config.lang)) {
+    config.lang = 'ru';
+  }
+  useLangFromConfig(config);
   const state = {
     version: 1,
-    config: { ...DEFAULT_CONFIG, ...previous?.config },
+    config,
     tasks,
   };
   writeJson(statePath(tasksDir), state);
@@ -405,11 +441,11 @@ function cmdSet(ref, flags) {
   const prevPhase = task.phase;
 
   if (flags.status !== undefined && !STATUSES.includes(flags.status)) {
-    fail(`status: ${STATUSES.join(' | ')}`);
+    failKey('fail.badStatus', { expected: STATUSES.join(' | ') });
   }
   const phaseFlagPassed = flags.phase !== undefined;
   if (phaseFlagPassed && flags.phase !== 'null' && !PHASES.includes(flags.phase)) {
-    fail(`phase: ${PHASES.join(' | ')} | null`);
+    failKey('fail.badPhase', { expected: PHASES.join(' | ') });
   }
 
   const nextStatus = flags.status !== undefined ? flags.status : prevStatus;
@@ -428,7 +464,7 @@ function cmdSet(ref, flags) {
 
   if (task.status === 'in-progress') {
     const other = state.tasks.find((item) => item.status === 'in-progress' && item !== task);
-    if (other) fail(`задача ${other.id} уже in-progress — одновременно в работе может быть только одна`);
+    if (other) failKey('fail.otherInProgress', { id: other.id });
   }
   const renamed = syncFileName(tasksDir, task);
   writeJson(statePath(tasksDir), state);
@@ -449,47 +485,63 @@ function cmdHookFollowup(flags) {
   const tasksDir = readJson(ACTIVE_PATH, {})[workspace];
   if (!tasksDir || !existsSync(statePath(tasksDir))) return;
   const state = loadState(tasksDir);
+  const lang = resolveLang(state.config, { isNewInit: false });
+  const withLang = (obj) => ({ ...obj, lang });
   const active = state.tasks.find((task) => task.status === 'in-progress');
   if (active?.phase === 'awaiting-approval') {
-    return print({ notice: `${active.id}: план готов и проверен — нужно подтверждение`, taskId: active.id });
+    return print(
+      withLang({ notice: t(lang, 'notice.awaitingApproval', { id: active.id }), taskId: active.id }),
+    );
   }
   if (active?.phase && active.phase !== 'done') {
-    return print({
-      taskId: active.id,
-      followup: `Продолжай конвейер задач: прочитай ~/.cursor/commands/task-pipeline.md и продолжи задачу ${active.id} с фазы ${active.phase} (папка задач: ${tasksDir}).`,
-    });
+    return print(
+      withLang({
+        taskId: active.id,
+        followup: t(lang, 'followup.resume', { id: active.id, phase: active.phase, tasksDir }),
+      }),
+    );
   }
   const first = state.tasks.find((task) => task.status !== 'done');
   if (first?.status === 'blocked') {
     applyRecommendedAnswers(tasksDir, first.id);
     if (questionsAllAnswered(tasksDir, first.id)) {
-      return print({
-        taskId: first.id,
-        followup: `Продолжай конвейер задач: в questions.md есть ответы (в т.ч. авто из Рекомендация) — выполни TP set ${first.id} --status in-progress и продолжай с фазы ${first.phase ?? 'implement'} (папка задач: ${tasksDir}). Прочитай ~/.cursor/commands/task-pipeline.md.`,
-      });
+      return print(
+        withLang({
+          taskId: first.id,
+          followup: t(lang, 'followup.unblock', {
+            id: first.id,
+            phase: first.phase ?? 'implement',
+            tasksDir,
+          }),
+        }),
+      );
     }
-    return print({ notice: `${first.id}: заблокирована — ответьте на вопросы в questions.md`, taskId: first.id });
+    return print(withLang({ notice: t(lang, 'notice.blocked', { id: first.id }), taskId: first.id }));
   }
   const lastDone = [...state.tasks].reverse().find((task) => task.status === 'done');
   if (first?.status === 'todo' && state.config.continueNextTask !== false) {
-    const prev = lastDone ? `${lastDone.id} выполнена. ` : '';
-    return print({
-      taskId: first.id,
-      kind: 'next-task',
-      notice: `${prev}беру следующую: ${first.id}`,
-      followup: `Продолжай конвейер задач без паузы: ${prev}следующая задача ${first.id}. Выполни TP set ${first.id} --status in-progress --phase plan и пройди полный цикл (план → факт → implement → check → commit) по ~/.cursor/commands/task-pipeline.md (папка задач: ${tasksDir}). Не проси новый чат и не заканчивай ответ вопросом «продолжать?» — следующую задачу запустит stop-hook.`,
-    });
+    const prev = lastDone ? t(lang, 'followup.prevDone', { id: lastDone.id }) : '';
+    return print(
+      withLang({
+        taskId: first.id,
+        kind: 'next-task',
+        notice: t(lang, 'notice.nextTask', { prev, id: first.id }),
+        followup: t(lang, 'followup.nextTask', { prev, id: first.id, tasksDir }),
+      }),
+    );
   }
   if (lastDone) {
     const tail = first
-      ? `следующая: ${first.id} (continueNextTask=false — новый чат, /task-pipeline)`
-      : 'все задачи выполнены';
-    return print({ notice: `${lastDone.id} выполнена — ${tail}`, taskId: lastDone.id });
+      ? t(lang, 'notice.tailNextFalse', { id: first.id })
+      : t(lang, 'notice.tailAllDone');
+    return print(
+      withLang({ notice: t(lang, 'notice.doneContinueFalse', { id: lastDone.id, tail }), taskId: lastDone.id }),
+    );
   }
   if (!first) {
-    return print({ notice: 'все задачи выполнены' });
+    return print(withLang({ notice: t(lang, 'notice.allDone') }));
   }
-  print({});
+  print(withLang({}));
 }
 
 const [command, ...rest] = process.argv.slice(2);
@@ -502,11 +554,11 @@ switch (command) {
     cmdNext(flags);
     break;
   case 'show':
-    if (!positional[0]) fail('укажите задачу');
+    if (!positional[0]) failKey('fail.needTaskRef');
     cmdShow(positional[0], flags);
     break;
   case 'set':
-    if (!positional[0]) fail('укажите задачу');
+    if (!positional[0]) failKey('fail.needTaskRef');
     cmdSet(positional[0], flags);
     break;
   case 'summary':
@@ -516,7 +568,5 @@ switch (command) {
     cmdHookFollowup(flags);
     break;
   default:
-    fail(
-      'команды: init <dir> | next | show <id> | set <id> [--status S] [--phase P] [--force] | summary  (опц. --dir D)',
-    );
+    failKey('fail.usage');
 }

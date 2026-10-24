@@ -65,6 +65,25 @@ out="$($TP hook-followup --workspace "$B")"
 echo "$out" | has_key followup || { echo "FAIL: expected followup after recommendation"; echo "$out"; exit 1; }
 echo "$out" | grep -q 'in-progress' || { echo "FAIL: followup should mention in-progress"; echo "$out"; exit 1; }
 
+# --- blocked + Recommendation/Answer (EN) → followup ---
+E="$(mktemp -d)"
+cat > "$E/001-e.md" <<'EOF'
+# e
+EOF
+$TP init "$E" >/dev/null
+mkdir -p "$E/.pipeline/runs/001-e"
+cat > "$E/.pipeline/runs/001-e/questions.md" <<'EOF'
+## Q1
+Options: A / B
+Recommendation: B
+Answer:
+
+EOF
+$TP set 001-e --status blocked --phase implement --dir "$E" >/dev/null
+out="$($TP hook-followup --workspace "$E")"
+echo "$out" | has_key followup || { echo "FAIL: EN Recommendation should unblock"; echo "$out"; exit 1; }
+grep -q '^Answer: B' "$E/.pipeline/runs/001-e/questions.md" || { echo "FAIL: auto-fill should write Answer: B"; cat "$E/.pipeline/runs/001-e/questions.md"; exit 1; }
+
 # --- next-task when continueNextTask true ---
 C="$(mktemp -d)"
 cat > "$C/001-x.md" <<'EOF'

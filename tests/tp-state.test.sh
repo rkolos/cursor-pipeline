@@ -82,13 +82,13 @@ phase_after="$(python3 -c 'import json; print(json.load(open("'"$TMP"'/.pipeline
 
 # Reset 003 for fail cases: re-init won't reset known status — use force to put back in-progress/plan
 $TP set 003-gamma --status in-progress --phase plan --force --dir "$TMP" >/dev/null 2>/tmp/tp-force-warn.txt
-grep -q 'предупреждение' /tmp/tp-force-warn.txt || { echo "FAIL: expected --force warning on stderr"; cat /tmp/tp-force-warn.txt; exit 1; }
+grep -qiE 'предупреждение|warning|попередження' /tmp/tp-force-warn.txt || { echo "FAIL: expected --force warning on stderr"; cat /tmp/tp-force-warn.txt; exit 1; }
 
 ec=0
 err="$(mktemp)"
 $TP set 003-gamma --phase commit --dir "$TMP" >"$err" 2>&1 || ec=$?
 [[ "$ec" -ne 0 ]] || { echo "FAIL: plan→commit should fail"; cat "$err"; exit 1; }
-grep -q 'запрещён переход' "$err" || { echo "FAIL: expected transition message"; cat "$err"; exit 1; }
+grep -qiE 'запрещён переход|illegal phase transition|заборонений перехід' "$err" || { echo "FAIL: expected transition message"; cat "$err"; exit 1; }
 
 ec=0
 $TP set 003-gamma --phase done --dir "$TMP" >"$err" 2>&1 || ec=$?
@@ -117,7 +117,7 @@ $TP set 003-gamma --status in-progress --phase plan --force --dir "$TMP" >/dev/n
 force_out="$(mktemp)"
 force_err="$(mktemp)"
 $TP set 003-gamma --phase commit --force --dir "$TMP" >"$force_out" 2>"$force_err"
-grep -q 'предупреждение' "$force_err" || { echo "FAIL: force jump missing warning"; cat "$force_err"; exit 1; }
+grep -qiE 'предупреждение|warning|попередження' "$force_err" || { echo "FAIL: force jump missing warning"; cat "$force_err"; exit 1; }
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$force_out" || { echo "FAIL: force jump stdout not JSON"; cat "$force_out"; exit 1; }
 phase_forced="$(python3 -c 'import json; t=json.load(open("'"$TMP"'/.pipeline/state.json"))["tasks"]; print([x for x in t if x["id"]=="003-gamma"][0]["phase"])')"
 [[ "$phase_forced" == "commit" ]] || { echo "FAIL: force jump should set commit, got $phase_forced"; exit 1; }
@@ -156,7 +156,27 @@ EOF
 init_out="$(mktemp)"
 init_stderr="$(mktemp)"
 $TP init "$INF2" >"$init_out" 2>"$init_stderr"
-grep -q 'несколько in-progress' "$init_stderr" || { echo "FAIL: expected multi in-progress warning"; cat "$init_stderr"; exit 1; }
+grep -qiE 'несколько in-progress|multiple in-progress|кілька in-progress' "$init_stderr" || { echo "FAIL: expected multi in-progress warning"; cat "$init_stderr"; exit 1; }
+
+# lang: new init → en; re-init migrates missing lang → ru
+LANG_TMP="$(mktemp -d)"
+cat > "$LANG_TMP/001-z.md" <<'EOF'
+# z
+EOF
+$TP init "$LANG_TMP" >/dev/null
+lang_new="$(python3 -c 'import json; print(json.load(open("'"$LANG_TMP"'/.pipeline/state.json"))["config"]["lang"])')"
+[[ "$lang_new" == "en" ]] || { echo "FAIL: new init lang should be en, got $lang_new"; exit 1; }
+python3 - <<PY
+import json
+from pathlib import Path
+p = Path("$LANG_TMP") / ".pipeline" / "state.json"
+state = json.loads(p.read_text())
+del state["config"]["lang"]
+p.write_text(json.dumps(state, indent=2) + "\n")
+PY
+$TP init "$LANG_TMP" >/dev/null
+lang_old="$(python3 -c 'import json; print(json.load(open("'"$LANG_TMP"'/.pipeline/state.json"))["config"]["lang"])')"
+[[ "$lang_old" == "ru" ]] || { echo "FAIL: migrate missing lang → ru, got $lang_old"; exit 1; }
 python3 - <<PY
 import json
 tasks = {t["id"]: t for t in json.load(open("$INF2/.pipeline/state.json"))["tasks"]}

@@ -67,8 +67,8 @@ Then **Developer: Reload Window** in Cursor.
 
 | Repo path | Installed to |
 |-----------|----------------|
-| `commands/*.md` | `~/.cursor/commands/` |
-| `rules/task-pipeline-*.mdc` | `~/.cursor/rules/` |
+| `commands/ru/*.md` (install baseline) | `~/.cursor/commands/` |
+| `rules/ru/task-pipeline-*.mdc` | `~/.cursor/rules/` |
 | `scripts/hook.mjs`, `hook.sh`, `tp-state.mjs`, `run-loop.sh` | `~/.cursor/task-pipeline/` |
 | `hooks/hooks.json` (fragment) | merged into `~/.cursor/hooks.json` |
 

@@ -46,9 +46,9 @@
     },
     {
       "id": "06-i18n-foundation",
-      "file": "06-i18n-foundation.md",
-      "status": "todo",
-      "phase": null
+      "file": "06-i18n-foundation.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "07-locale-english",

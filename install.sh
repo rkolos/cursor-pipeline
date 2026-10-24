@@ -130,14 +130,21 @@ warn_optional
 
 mkdir -p "$COMMANDS_DIR" "$RULES_DIR" "$TP_DIR"
 
-echo "Commands:"
-install_symlink "$REPO_ROOT/commands/task-pipeline.md" "$COMMANDS_DIR/task-pipeline.md"
-install_symlink "$REPO_ROOT/commands/tp-fact.md" "$COMMANDS_DIR/tp-fact.md"
-install_symlink "$REPO_ROOT/commands/tp-check.md" "$COMMANDS_DIR/tp-check.md"
+# Locale for agent prompts (09 adds --lang; until then install keeps RU baseline).
+INSTALL_LANG="${INSTALL_LANG:-ru}"
+COMMANDS_SRC="$REPO_ROOT/commands/$INSTALL_LANG"
+RULES_SRC="$REPO_ROOT/rules/$INSTALL_LANG"
+[[ -d "$COMMANDS_SRC" ]] || die "missing commands/$INSTALL_LANG"
+[[ -d "$RULES_SRC" ]] || die "missing rules/$INSTALL_LANG"
 
-echo "Rules:"
+echo "Commands ($INSTALL_LANG):"
+install_symlink "$COMMANDS_SRC/task-pipeline.md" "$COMMANDS_DIR/task-pipeline.md"
+install_symlink "$COMMANDS_SRC/tp-fact.md" "$COMMANDS_DIR/tp-fact.md"
+install_symlink "$COMMANDS_SRC/tp-check.md" "$COMMANDS_DIR/tp-check.md"
+
+echo "Rules ($INSTALL_LANG):"
 # All task-pipeline-*.mdc (no-stop, autonomous-checks, recommended-answers, commit-before-done, …)
-for src in "$REPO_ROOT/rules"/task-pipeline-*.mdc; do
+for src in "$RULES_SRC"/task-pipeline-*.mdc; do
   [[ -f "$src" ]] || continue
   install_symlink "$src" "$RULES_DIR/$(basename "$src")"
 done

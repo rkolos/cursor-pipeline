@@ -17,6 +17,10 @@ Each task moves through phases stored in `state.json`:
 
 Statuses: `todo`, `in-progress`, `blocked`, `done`. Only one task may be `in-progress`.
 
+`config.lang` is `en` | `uk` | `ru`. A **new** `init` sets `lang` to `TP_LANG` or `en`. Re-init of an existing state without `lang` writes `ru` (legacy installs). CLI/hook strings load from `scripts/locales/<lang>.json` via `scripts/i18n.mjs`. Agent command/rule files live under `commands/<lang>/` and `rules/<lang>/`; `install.sh` currently links the `ru` tree (switchable in task 09).
+
+`questions.md` accepts `Recommendation` / `Рекомендация` / `Рекомендація` and `Answer` / `Ответ` / `Відповідь`; auto-fill keeps the same language label.
+
 On the commit phase the agent stays `in-progress` until `git commit` succeeds: `TP set … done` (task file rename) immediately before staging that commit; if the commit fails, roll back with `TP set … --status in-progress --phase commit --force`. Push failure does not undo `done`.
 
 `tp-state set` validates status/phase invariants (for example `done` implies `phase=done`, `todo` implies `phase=null`) and, while status stays `in-progress`, only allows adjacent phase moves along the pipeline (`plan → fact → … → commit`, plus documented shortcuts such as `fact → implement` and `check → commit`). Use `--force` to bypass those checks for manual repair; the status/phase whitelist and the single `in-progress` rule still apply.

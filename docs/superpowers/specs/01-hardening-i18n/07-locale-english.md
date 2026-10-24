@@ -1,7 +1,7 @@
 # Spec 01 — Task 07 — English locale (commands, rules, strings)
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **07** · priority **P0**  
-**Depends on:** [06](06-i18n-foundation.md), [03](03-commit-before-done.done.md) (commit-before-done должен попасть в EN)
+**Depends on:** [06](06-i18n-foundation.done.md), [03](03-commit-before-done.done.md) (commit-before-done должен попасть в EN)
 
 ## Description
 
