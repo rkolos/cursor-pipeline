@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "config": {
+    "gateAfterFact": false,
+    "maxCheckRounds": 2,
+    "push": true,
+    "reviewModel": null,
+    "continueNextTask": true
+  },
+  "tasks": [
+    {
+      "id": "00-plan",
+      "file": "00-plan.done.md",
+      "status": "done",
+      "phase": "done"
+    },
+    {
+      "id": "01-state-transition-validation",
+      "file": "01-state-transition-validation.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "02-init-infer-status-from-filename",
+      "file": "02-init-infer-status-from-filename.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "03-commit-before-done",
+      "file": "03-commit-before-done.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "04-merge-hooks-update",
+      "file": "04-merge-hooks-update.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "05-hook-followup-tests-ci",
+      "file": "05-hook-followup-tests-ci.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "06-i18n-foundation",
+      "file": "06-i18n-foundation.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "07-locale-english",
+      "file": "07-locale-english.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "08-locale-ukrainian",
+      "file": "08-locale-ukrainian.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "09-install-lang-and-docs",
+      "file": "09-install-lang-and-docs.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "10-tp-state-doctor",
+      "file": "10-tp-state-doctor.md",
+      "status": "todo",
+      "phase": null
+    },
+    {
+      "id": "11-acceptance-pass",
+      "file": "11-acceptance-pass.md",
+      "status": "todo",
+      "phase": null
+    }
+  ]
+}
