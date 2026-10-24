@@ -1,0 +1,18 @@
+---
+description: In /task-pipeline do not leave a task done without a successful git commit; roll back if commit fails
+alwaysApply: true
+---
+
+# Task-pipeline: commit before done
+
+On the **commit** phase status stays `in-progress` (phase `commit`) until `git commit` succeeds.
+
+## Order
+
+1. Remote / checks / Docker cleanup — still while `in-progress`/`commit`.
+2. Prepare changes → `TP set … --status done --phase done` (task rename) → `git add` (including rename) → one `git commit`.
+3. Push (`push: true`) after a successful commit. Push failure does not undo `done`.
+
+## Rollback
+
+If `git commit` failed after `set done`: immediately `TP set … --status in-progress --phase commit --force`, describe the failure in `fix-plan.md`, do not treat the task as closed.

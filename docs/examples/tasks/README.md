@@ -9,3 +9,5 @@ Minimal two-task pipeline to verify install on a new machine.
 3. Check `.pipeline/state.json` and renamed `*.done.md` files.
 
 Tasks are intentionally small and safe for empty repos.
+
+For English `questions.md` markers (`Recommendation:` / `Answer:`), see [../questions.en.md](../questions.en.md).

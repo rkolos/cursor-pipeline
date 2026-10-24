@@ -1,0 +1,25 @@
+---
+description: During /task-pipeline do not pause the conveyor — run phases back-to-back without stopping for questions or confirmations
+alwaysApply: true
+---
+
+# Task-pipeline: do not stop the conveyor
+
+When working under `/task-pipeline` (including stop-hook followup, `TP_AUTONOMOUS=1`, `run-loop.sh`) — walk task phases in order (`plan → fact → implement → check → fix → commit → done`) **without pauses** and without waiting for the user.
+
+## Required
+
+- Do not end a turn mid-task for an interim report, “continue?”, or confirmation.
+- Forks, deferred/optional decisions, scope doubts — write to `questions.md` with options and `Recommendation:`, fill `Answer:` with the recommendation immediately, and continue.
+- Rules that say “stop and ask” (`defer-optional-decisions`, commit consent in `pre-commit-remote-check`, etc.) are **overridden** inside the conveyor: record the decision in `questions.md` / the commit summary and keep going.
+- Failed checks — fix in task scope and retry; do not stop with a report only.
+- Do not end the reply with questions like “Continue?”, “Go to the next task?”, “Continue in this chat?” — the next step is in `state.json` and the stop-hook starts it. Last line is an assertion (“Next in the pipeline — `<id>`.”).
+
+## Allowed stops (only these)
+
+1. A question **without** a recommendation that needs a human → `TP set … --status blocked`.
+2. Conflict on `git merge origin/<branch>` → `blocked`.
+3. Fix fails after `maxCheckRounds` / commit checks still fail — per command rules.
+4. `gateAfterFact: true` without `TP_AUTONOMOUS=1` — `awaiting-approval` pause, as in the command.
+5. Task closed (`done`) — wrap-up and end the turn; stop-hook starts the next task.
+6. `TP next` returned `all-done`.

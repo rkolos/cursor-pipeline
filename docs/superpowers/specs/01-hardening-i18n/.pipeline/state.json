@@ -52,9 +52,9 @@
     },
     {
       "id": "07-locale-english",
-      "file": "07-locale-english.md",
-      "status": "todo",
-      "phase": null
+      "file": "07-locale-english.done.md",
+      "status": "done",
+      "phase": "done"
     },
     {
       "id": "08-locale-ukrainian",

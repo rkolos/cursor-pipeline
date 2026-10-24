@@ -22,7 +22,7 @@
 | 04 | [04-merge-hooks-update.done.md](04-merge-hooks-update.done.md) | P0 | Reinstall обновляет pipeline-hooks по marker |
 | 05 | [05-hook-followup-tests-ci.done.md](05-hook-followup-tests-ci.done.md) | P0 | Тесты `hook-followup` + GitHub Actions |
 | 06 | [06-i18n-foundation.done.md](06-i18n-foundation.done.md) | P0 | `config.lang`, каталоги строк, парсер Q-меток EN/UK/RU |
-| 07 | [07-locale-english.md](07-locale-english.md) | P0 | Полный EN: commands, rules, followup/CLI |
+| 07 | [07-locale-english.done.md](07-locale-english.done.md) | P0 | Полный EN: commands, rules, followup/CLI |
 | 08 | [08-locale-ukrainian.md](08-locale-ukrainian.md) | P0 | Полный UK: commands, rules, followup/CLI |
 | 09 | [09-install-lang-and-docs.md](09-install-lang-and-docs.md) | P1 | `install.sh --lang`, README/how-it-works, примеры |
 | 10 | [10-tp-state-doctor.md](10-tp-state-doctor.md) | P1 | `tp-state doctor` / рассинхрон file↔status |

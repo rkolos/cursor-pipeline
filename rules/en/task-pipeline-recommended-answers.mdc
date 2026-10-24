@@ -1,0 +1,14 @@
+---
+description: In task-pipeline do not block a task when a question has Recommendation — use it as Answer immediately
+alwaysApply: true
+---
+
+# Task-pipeline: recommendation = answer, no blocked
+
+When writing `questions.md` for `/task-pipeline` / `TP_AUTONOMOUS=1` / `run-loop.sh`:
+
+1. Every question should have options and a `Recommendation: A` line (letter or short token) when a choice can reasonably be proposed.
+2. If **Recommendation:** is present — fill `Answer:` with that value immediately, apply the decision in plan/code, and **do not** `TP set … --status blocked`.
+3. `blocked` + stop — **only** if there is no recommendation and `Answer:` is empty (human needed).
+
+Do not leave `Recommendation: A` with empty `Answer:` and status blocked — that is an unnecessary manual pause.

@@ -115,4 +115,27 @@ kind="$(echo "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin).ge
 echo "$out" | has_key notice || { echo "FAIL: expected notice when continueNextTask=false"; echo "$out"; exit 1; }
 echo "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert not d.get("followup"), d'
 
+# --- lang=en next-task followup is English ---
+EN="$(mktemp -d)"
+cat > "$EN/001-p.md" <<'EOF'
+# p
+EOF
+cat > "$EN/002-q.md" <<'EOF'
+# q
+EOF
+$TP init "$EN" >/dev/null
+python3 - <<PY
+import json
+from pathlib import Path
+p = Path("$EN") / ".pipeline" / "state.json"
+state = json.loads(p.read_text())
+assert state["config"].get("lang") == "en", state["config"]
+p.write_text(json.dumps(state, indent=2) + "\n")
+PY
+$TP set 001-p --status in-progress --phase plan --dir "$EN" >/dev/null
+$TP set 001-p --status done --phase done --dir "$EN" >/dev/null
+out="$($TP hook-followup --workspace "$EN")"
+echo "$out" | grep -q 'Continue the task pipeline' || { echo "FAIL: en followup should be English"; echo "$out"; exit 1; }
+echo "$out" | grep -qiE 'Продолжай|Продовжуй' && { echo "FAIL: en followup must not be RU/UK"; echo "$out"; exit 1; }
+
 echo "hook-followup.test.sh OK"

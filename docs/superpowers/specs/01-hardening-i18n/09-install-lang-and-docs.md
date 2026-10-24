@@ -1,7 +1,7 @@
 # Spec 01 — Task 09 — `install.sh --lang` + documentation
 
 **Parent plan:** [00-plan.done.md](00-plan.done.md) · очередь **09** · priority **P1**  
-**Depends on:** [06](06-i18n-foundation.done.md), [07](07-locale-english.md), [08](08-locale-ukrainian.md)
+**Depends on:** [06](06-i18n-foundation.done.md), [07](07-locale-english.done.md), [08](08-locale-ukrainian.md)
 
 ## Description
 
